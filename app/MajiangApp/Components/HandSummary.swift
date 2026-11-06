@@ -11,7 +11,7 @@ struct FanList: View {
                 FanRow(name: entry.displayName,
                        plain: entry.fan.explanation, points: entry.points)
             }
-            if win.flowerFan > 0 {
+            if win.flowerFan > 0 && !win.fans.contains(where: { $0.fan == .seatFlower || $0.fan == .flowerSet || $0.fan == .eightImmortals }) {
                 FanRow(name: "正花 ×\(win.flowerFan)", plain: "对应自己门风座位的花牌，每朵 1 台", points: win.flowerFan)
             }
         }

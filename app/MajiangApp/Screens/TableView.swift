@@ -360,11 +360,6 @@ private struct SeatLabel: View {
                     .minimumScaleFactor(0.7)
                 if game.dealer(ofHand: hand) == player && !game.isFinished {
                     DealerStamp(size: 18)
-                    if game.streak(ofHand: hand) > 0 {
-                        Text("连\(game.streak(ofHand: hand))")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Theme.vermilion)
-                    }
                 }
             }
             Text(Theme.signed(game.scores[player]))

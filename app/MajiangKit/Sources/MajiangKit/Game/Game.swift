@@ -353,6 +353,9 @@ public struct Game: Identifiable, Hashable, Codable, Sendable {
     /// 已经打完的局数（含连庄局），也就是当前是第几局（0 起）。
     public var currentHandIndex: Int { records.filter(\.outcome.advancesHand).count }
 
+    /// 实际已打完的局数（含连庄与臭庄）。
+    public var playedHandsCount: Int { currentHandIndex }
+
     /// 已经完成的庄家任数（下庄次数）。
     public var completedRotations: Int { state(ofHand: currentHandIndex).rotation }
 

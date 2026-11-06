@@ -42,17 +42,11 @@ struct ResultSheet: View {
                 .accessibilityHint("回到核对页改谁胡了、怎么胡的")
                 .padding(.top, 20)
                 let paid = game.rules.paidFan(record)
-                let limit = Payment.limitName(han: paid, fu: record.fu, kiriageMangan: game.rules.kiriageMangan)
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("\(record.totalFan)")
                         .font(.system(size: 88, weight: .ultraLight).monospacedDigit())
                         .tracking(-2)
                     Text("台").font(Theme.serif(22))
-                    if let limit {
-                        Text("· \(limit)")
-                            .font(Theme.serif(20, semibold: true))
-                            .foregroundStyle(Theme.vermilion)
-                    }
                 }
                 .frame(maxWidth: .infinity)
                 if paid < record.totalFan {

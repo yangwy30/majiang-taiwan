@@ -19,7 +19,7 @@ final class CloudSync {
         case failed(String)
     }
 
-    static let containerID = "iCloud.com.yangwy30.majiang"
+    static let containerID = "iCloud.com.yangwy30.majiang.taiwan"
 
     private(set) var status: Status = .off
 

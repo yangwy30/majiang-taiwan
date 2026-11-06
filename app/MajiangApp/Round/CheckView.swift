@@ -13,8 +13,8 @@ struct CheckView: View {
     @State private var actionMeld: Int?
     @State private var confirmFalseWin = false
     @State private var rareOpen = false
-    /// 牌一张张落进格子里（从拍照页升上来时）。
-    @State private var landed = false
+    /// 牌一张张落进格子里（从拍照页升上来时）；截图模式下直接落定。
+    @State private var landed = DemoScreen.current != nil
     /// 再认一遍时牌从这个时刻开始翻，等落定以后。
     @State private var flipStart = Date()
     /// 再认一遍等久了才给「不等了」。
@@ -45,10 +45,10 @@ struct CheckView: View {
     /// 这一页有多宽（不用屏幕宽度：Duo 分屏时窗口比屏幕窄）。
     @State private var pageWidth: CGFloat = 0
 
-    /// 每行 7 张，按页面宽度算牌的大小，最大 44。宽屏上内容收在中间一栏，按那一栏算。
+    /// 台湾麻将 17 张牌按每行 9 张排成两行（9 + 8 = 17），按页面宽度算牌的大小。
     private var tileWidth: CGFloat {
-        guard pageWidth > 0 else { return 44 }
-        return max(24, min(44, (min(pageWidth, Theme.columnWidth) - 48 - 6 * 6) / 7))
+        guard pageWidth > 0 else { return 36 }
+        return max(24, min(40, (min(pageWidth, Theme.columnWidth) - 48 - 8 * 5) / 9))
     }
 
     var body: some View {
@@ -248,7 +248,7 @@ struct CheckView: View {
     private var canAddTile: Bool { flow.tiles.count + 3 * flow.melds.count < 17 }
 
     private var tileGrid: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), alignment: .center, spacing: 10) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 9), alignment: .center, spacing: 10) {
             ForEach(Array(flow.tiles.enumerated()), id: \.element.id) { index, tile in
                 Button {
                     actionTile = index
@@ -272,7 +272,7 @@ struct CheckView: View {
                     .opacity(landed || reduceMotion ? 1 : 0)
                     .offset(y: landed || reduceMotion ? 0 : -26)
                     .scaleEffect(landed || reduceMotion ? 1 : 0.86)
-                    .animation(.spring(response: 0.42, dampingFraction: 0.68).delay(Double(index) * 0.05), value: landed)
+                    .animation(.spring(response: 0.40, dampingFraction: 0.74).delay(Double(index) * 0.03), value: landed)
                 }
                 .buttonStyle(.plain)
                 .disabled(flow.isReviewing)

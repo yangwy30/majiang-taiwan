@@ -5,7 +5,7 @@ import MajiangKit
 /// 数据存在临时目录，不会碰真的牌局记录。只在开发版里有。
 enum DemoScreen: String {
     case emptyHome = "empty-home"
-    case home, newGame = "new-game", table, editHand = "edit-hand", capture, check, notWin = "not-win", result, settle
+    case home, newGame = "new-game", table, editHand = "edit-hand", capture, check, checkReady = "check-ready", notWin = "not-win", result, settle
     /// 双读：端侧结果已显示、Gemini 还在复核；复核完、有一张两边读得不一样和一张只有一边读到。
     case reviewing = "check-reviewing", dualRead = "check-dual"
     /// 发到群里的账本图：打完的结算 / 没打完的牌局；备份与换手机页。
@@ -34,7 +34,7 @@ enum DemoScreen: String {
     }
 
     /// 在牌桌上自动打开记一局。
-    var opensRound: Bool { [.capture, .check, .notWin, .result, .resultCapped, .reviewing, .dualRead].contains(self) }
+    var opensRound: Bool { [.capture, .check, .checkReady, .notWin, .result, .resultCapped, .reviewing, .dualRead].contains(self) }
 }
 
 #if DEBUG
@@ -65,22 +65,23 @@ enum DemoData {
             houseRules.fanCap = screen == .resultCapped ? 8 : 16
         }
         var active = Game(players: players, rules: houseRules)
-        win(&active, winner: 0, discarder: nil, hand: "1112233445566778p 8p")
+        win(&active, winner: 0, discarder: nil, flowers: [.spring, .plum], hand: "1112233445566778p 8p")
         win(&active, winner: 2, discarder: 1, melds: [.pung(Tile(suit: .honors, rank: 6)!)], hand: "234m 345s 678s 45p 88s 6p")
         _ = try? active.recordDraw()
-        win(&active, winner: 3, discarder: nil, hand: "234m 456m 678m 123p 东东东 99m")
+        win(&active, winner: 1, discarder: nil, flowers: [.summer, .orchid], hand: "234m 456m 678m 123p 东东东 99m")
         archive.upsert(active)
 
         archive.remember(players + [Player(name: "老王"), Player(name: "小周")])
         return archive
     }
 
-    /// 按真的算番记一手；凑不成或不够番时退回 8 番的无番和，保证有数据。
-    private static func win(_ game: inout Game, winner: Int, discarder: Int?, melds: [Meld] = [], hand text: String) {
+    /// 按真的算番记一手；凑不成或不够番时退回 0 台的屁胡，保证有数据。
+    private static func win(_ game: inout Game, winner: Int, discarder: Int?, melds: [Meld] = [], flowers: Set<FlowerTile> = [], hand text: String) {
         let tiles = Tile.parseList(text)
         let hand = Hand(melds: melds, concealed: tiles, winningTile: tiles.last)
         var context = game.winContext(for: winner)
         context.selfDrawn = discarder == nil
+        context.flowers = flowers
         let record: WinRecord
         if case .success(let result) = FanCalculator.score(hand, context: context), result.meetsMinimum(game.rules.minimumFan) {
             record = WinRecord(winner: winner, discarder: discarder, hand: hand, context: context, result: result)
@@ -136,6 +137,12 @@ enum DemoData {
         case .check:
             flow.load(samples[0])
             flow.steps = [.check]
+        case .checkReady:
+            flow.load(samples[0])
+            flow.choose(Tile(suit: .dots, rank: 5)!, at: 9)
+            flow.pickSelfDrawn()
+            flow.flowers = [.spring, .plum, .summer]
+            flow.steps = [.check]
         case .notWin:
             flow.load(samples[2])
             flow.steps = [.check]
@@ -154,6 +161,7 @@ enum DemoData {
             flow.load(samples[0])
             flow.choose(Tile(suit: .dots, rank: 5)!, at: 9)
             flow.pickSelfDrawn()
+            flow.flowers = [.spring, .plum]
             flow.steps = [.check]
             flow.showResult = true
         default:

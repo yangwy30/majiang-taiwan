@@ -60,8 +60,8 @@ struct ShareCard: View {
                 Text(game.isFinished ? "打完了" : "打到\(game.handLabel)")
                     .font(.system(size: 26, weight: .semibold))
                     .tracking(-0.3)
-                Text(game.isFinished ? "一共 \(game.currentHandIndex) 局"
-                     : "打了 \(game.currentHandIndex) 局 · 还剩 \(game.remainingHands) 任庄")
+                Text(game.isFinished ? "一共 \(game.playedHandsCount) 局"
+                     : "打了 \(game.playedHandsCount) 局 · 还剩 \(game.remainingHands) 任庄")
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
             }
@@ -81,12 +81,16 @@ struct ShareCard: View {
                         .font(.system(size: 17, weight: .medium))
                         .lineLimit(1)
                     Spacer(minLength: 8)
-                    Text(game.moneyText(scores[player]))
-                        .font(.system(size: 13).monospacedDigit())
-                        .foregroundStyle(Theme.gray)
+                    if game.rules.yuanPerPoint != 1 {
+                        Text(game.moneyText(scores[player]))
+                            .font(.system(size: 13).monospacedDigit())
+                            .foregroundStyle(Theme.gray)
+                            .fixedSize()
+                    }
                     Text(Theme.signed(scores[player]))
                         .font(Theme.score(26))
                         .foregroundStyle(Theme.scoreColor(scores[player]))
+                        .fixedSize()
                         .frame(minWidth: 64, alignment: .trailing)
                 }
                 .frame(height: 54)
