@@ -100,7 +100,7 @@ struct CheckView: View {
                     HStack(spacing: 10) {
                         Text("看结果")
                         Text("·").fontWeight(.light).opacity(0.7)
-                        Text("\(result.totalFan) 翻 \(result.fu) 符").monospacedDigit()
+                        Text("\(result.totalFan) 台").monospacedDigit()
                     }
                 }
             }
@@ -245,7 +245,7 @@ struct CheckView: View {
         return flow.suggestions.first?.index
     }
 
-    private var canAddTile: Bool { flow.tiles.count + 3 * flow.melds.count < 14 }
+    private var canAddTile: Bool { flow.tiles.count + 3 * flow.melds.count < 17 }
 
     private var tileGrid: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), alignment: .center, spacing: 10) {
@@ -371,20 +371,18 @@ struct CheckView: View {
     private var problemCard: some View {
         let suggestion = flow.suggestions.first
         let minimum = game.rules.minimumFan
-        var title = "还凑不成和牌"
+        var title = "还凑不成胡牌"
         var reason: Text
         switch flow.scoring {
         case .success(let result):
-            title = result.fanWithoutFlowers == 0
-                ? "无役，立直麻将至少要有 \(minimum) 翻役才能和"
-                : "只有 \(result.fanWithoutFlowers) 翻役，本场要 \(minimum) 翻才能和"
-            reason = Text("牌型没问题。如果这手立直了，在下面「立直与特殊情况」里勾上「立直」；宝牌每张加 1 翻，但不算进起和役。")
+            title = "只有 \(result.totalFan) 台，本桌要满 \(minimum) 台才能胡"
+            reason = Text("牌型没问题。如果有特殊情况或花牌，可以在下面勾上。")
         case .failure(.wrongTileCount):
-            reason = Text("和牌一共 14 张（每个杠多 1 张），现在是 \(flow.hand.allTiles.count) 张。")
+            reason = Text("台湾 16 张麻将胡牌一共 17 张（每个杠多 1 张），现在是 \(flow.hand.allTiles.count) 张。")
         case .failure(.tileMoreThanFour):
             reason = Text("\(flow.hand.overusedTiles.map(\.displayName).joined(separator: "、")) 超过了 4 张，一定有牌认错了。")
         case .failure:
-            reason = Text("和牌要 4 面子加 1 雀头（或七对子、国士无双），这 \(flow.hand.allTiles.count) 张凑不出来。")
+            reason = Text("台湾麻将胡牌要 5 组面子加 1 对将眼（或呖咕呖咕），这 \(flow.hand.allTiles.count) 张凑不出来。")
         }
         if let suggestion, let index = suggestion.index {
             reason = reason + Text("最可能是") + Text("第 \(index + 1) 张").fontWeight(.semibold).foregroundStyle(Theme.ink)
@@ -480,7 +478,7 @@ struct CheckView: View {
                 HStack(spacing: 8) {
                     ChoiceChip(title: "自摸", selected: flow.wayChosen && flow.selfDrawn) { flow.pickSelfDrawn() }
                     ForEach((0..<4).filter { $0 != flow.winner }, id: \.self) { i in
-                        ChoiceChip(title: "\(game.players[i].name)点炮",
+                        ChoiceChip(title: "\(game.players[i].name)放枪",
                                    selected: flow.wayChosen && !flow.selfDrawn && flow.discarder == i) {
                             flow.pickDiscarder(i)
                         }
@@ -527,7 +525,7 @@ struct CheckView: View {
             withAnimation(.easeOut(duration: 0.2)) { rareOpen.toggle() }
         } label: {
             HStack {
-                Text("立直与特殊情况").font(.system(size: 16))
+                Text("特殊胡牌情况").font(.system(size: 16))
                 Spacer()
                 Text((chosen.isEmpty ? "没有" : chosen.map(\.name).joined(separator: "、")) + (rareOpen ? " ⌃" : " ›"))
                     .font(.system(size: 15))
@@ -550,7 +548,7 @@ struct CheckView: View {
                 } label: {
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 2) {
-                            (Text(special.name) + Text(" · \(special.fanPoints) 翻").foregroundStyle(Theme.gray))
+                            (Text(special.name) + Text(" · \(special.fanPoints) 台").foregroundStyle(Theme.gray))
                                 .font(.system(size: 15))
                             Text(special.plain)
                                 .font(.system(size: 14))
@@ -578,25 +576,64 @@ struct CheckView: View {
     }
 
     private var flowers: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("宝牌").font(.system(size: 16))
-                if !model.isSeasoned {
-                    Text("表宝、赤宝、里宝每张 1 翻，不算起和役").font(.system(size: 14)).foregroundStyle(Theme.gray)
+        let seatWind = game.seatWind(of: flow.winner)
+        let matching = Set(seatWind.matchingFlowers)
+        let matchingNames = seatWind.matchingFlowers.map(\.name).joined(separator: "、")
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("花牌").font(.system(size: 16))
+                    Text("\(seatWind.name)风正花：\(matchingNames)（正花 1 台，齐一组花杠 2 台）")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.gray)
+                }
+                Spacer()
+                if flow.flowers.isEmpty {
+                    HStack(spacing: 12) {
+                        stepButton("minus", label: "少一朵") { flow.flowerCount = max(0, flow.flowerCount - 1) }
+                            .disabled(flow.flowerCount == 0)
+                        Text("\(flow.flowerCount)")
+                            .font(.system(size: 17).monospacedDigit())
+                            .frame(minWidth: 14)
+                        stepButton("plus", label: "多一朵") { flow.flowerCount = min(8, flow.flowerCount + 1) }
+                            .disabled(flow.flowerCount == 8)
+                    }
+                } else {
+                    Text("\(flow.flowers.count) 朵")
+                        .font(.system(size: 15).monospacedDigit())
+                        .foregroundStyle(Theme.gray)
                 }
             }
-            Spacer()
-            HStack(spacing: 14) {
-                stepButton("minus", label: "少一张") { flow.flowerCount = max(0, flow.flowerCount - 1) }
-                    .disabled(flow.flowerCount == 0)
-                Text("\(flow.flowerCount)")
-                    .font(.system(size: 17).monospacedDigit())
-                    .frame(minWidth: 14)
-                stepButton("plus", label: "多一张") { flow.flowerCount = min(12, flow.flowerCount + 1) }
-                    .disabled(flow.flowerCount == 12)
+            HStack(spacing: 6) {
+                ForEach(FlowerTile.allCases, id: \.self) { flower in
+                    let selected = flow.flowers.contains(flower)
+                    let isSeat = matching.contains(flower)
+                    Button {
+                        flow.toggleFlower(flower)
+                    } label: {
+                        VStack(spacing: 1) {
+                            Text(flower.name)
+                                .font(.system(size: 14, weight: selected ? .semibold : .regular))
+                            Text(isSeat ? "正\(flower.seatNumber)" : "\(flower.seatNumber)")
+                                .font(.system(size: 10))
+                                .opacity(0.75)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 38)
+                        .foregroundStyle(selected ? .white : (isSeat ? Theme.vermilion : Theme.ink))
+                        .background(
+                            selected ? Theme.ink : Color(hex: 0xFBFAF7),
+                            in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .strokeBorder(selected ? Theme.ink : (isSeat ? Theme.vermilion.opacity(0.45) : Theme.line))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
-        .frame(minHeight: 60)
+        .padding(.vertical, 12)
     }
 
     private func stepButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {

@@ -1,20 +1,20 @@
 import SwiftUI
 import MajiangKit
 
-/// 规则和役种说明：给打立直日麻的人看的白话速查表。
+/// 规则和台种说明：给打台湾 16 张麻将的人看的白话速查表。
 struct RulesGuideView: View {
     @Environment(\.dismiss) private var dismiss
 
     private let basics: [(String, String)] = [
-        ("怎么算点和钱", "按翻数和符数算出基本点：闲家荣和由点炮者付 4 倍基本点，闲家自摸由庄家付 2 倍、另外两家闲家各付 1 倍；庄家和牌是闲家的 1.5 倍（荣和 6 倍，自摸三家各付 2 倍），全部按百位向上进位。5 翻起固定为满贯（闲 8000 / 庄 12000）、跳满、倍满、三倍满、役满。"),
-        ("1 翻起和（无役不能和）", "立直麻将至少要有 1 翻「役」才能和牌。表宝牌、赤宝牌、里宝牌每张加 1 翻，但不能当起和役。没吃碰明杠（门前清）听牌时宣布「立直」，就有 1 翻役。"),
-        ("副露减翻与门前限定", "立直、一发、门前清自摸和、平和、一杯口、二杯口、七对子只能在门前清（没吃、没碰、没明杠）时成立；三色同顺、一气通贯、混全带幺九、纯全带幺九、混一色、清一色在吃碰明杠后减 1 翻。"),
-        ("半庄与东风战", "标准半庄打东场 4 局 + 南场 4 局共 8 局；东风战打 4 局。随时也可以提前结束结算。"),
-        ("错和罚符", "推倒了却无役或凑不成和牌，赔另外三家各 3000 点，这一局接着打。"),
+        ("16 张开局 · 17 张胡牌", "台湾麻将闲家开局抓 16 张牌，胡牌时共 17 张（5 组面子 + 1 对将眼；每多一个杠多 1 张）。特殊牌型「呖咕呖咕」（7 对子 + 1 刻子，共 17 张）及「八仙过海」「七抢一」也可胡牌。"),
+        ("底 + 台怎么算钱", "采用「底 + 台」制（常见 300/100、100/20、50/20）：单家应付 = 底 + 总台数 × 每台金额。别人放枪由放枪者独付；自摸由另外三家各自付底加台。"),
+        ("庄家与连 N 拉 N", "庄家本身加 1 台；庄家胡牌或臭庄（流局）即连庄，连 N 拉 N 额外加 2N 台（合计庄家连拉 = 2N + 1 台，如连一拉一共 3 台、连二拉二共 5 台）。注意：闲家互放枪不计庄家台；闲家自摸时，只有庄家那一份要加付庄家连拉台。"),
+        ("门清一摸三", "门前清（无吃、碰、明杠）1 台，自摸 1 台；若门前清且自摸，合称「门清一摸三」（不求人），直接计 3 台。"),
+        ("正花与花杠", "春夏秋冬与梅兰竹菊对应座位门风（1 东=春梅、2 南=夏兰、3 西=秋竹、4 北=冬菊），摸到自己的正花每朵 1 台；集齐春夏秋冬或梅兰竹菊一整组 4 张称「一台花 / 花杠」计 2 台；8 朵花全齐为「八仙过海」8 台。"),
     ]
 
     private var groups: [(points: Int, fans: [Fan])] {
-        Dictionary(grouping: Fan.allCases, by: \.points)
+        Dictionary(grouping: Fan.allCases.filter { $0 != .chickenHand }, by: \.points)
             .map { ($0.key, $0.value) }
             .sorted { $0.points < $1.points }
     }
@@ -36,13 +36,8 @@ struct RulesGuideView: View {
 
                     ForEach(groups, id: \.points) { group in
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            if group.points == 13 {
-                                Text("役满").font(Theme.serif(24, semibold: true))
-                                Text("· 13 翻").font(.system(size: 15)).foregroundStyle(Theme.gray)
-                            } else {
-                                Text("\(group.points)").font(Theme.score(28))
-                                Text("翻").font(Theme.serif(15))
-                            }
+                            Text("\(group.points)").font(Theme.score(28))
+                            Text("台").font(Theme.serif(15))
                         }
                         .padding(.top, 28)
                         .padding(.bottom, 4)
@@ -64,7 +59,7 @@ struct RulesGuideView: View {
                 .padding(.bottom, 24)
             }
             .page()
-            .navigationTitle("立直规则与役种")
+            .navigationTitle("台湾 16 张规则与台种")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 NavClose("关闭") { dismiss() }

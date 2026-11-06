@@ -93,7 +93,7 @@ final class DetectionTests: XCTestCase {
     }
 
     func testOnDeviceRecognizer() async throws {
-        let recognizer = OnDeviceRecognizer(detector: FakeDetector(detections: row("1112233445566p7p")))
+        let recognizer = OnDeviceRecognizer(detector: FakeDetector(detections: row("1112233445566778p8p")))
         let result = try await recognizer.recognize(RecognitionRequest(image: Data()))
         XCTAssertEqual(result.source, "端侧")
         XCTAssertTrue(FanCalculator.isWinningShape(result.hand))
@@ -107,28 +107,28 @@ final class DetectionTests: XCTestCase {
     }
 
     func testMergeUsesGeminiMeldsAndFlagsOnlyRealDifferences() {
-        // Gemini：立牌 11 张 + 碰中；端侧：14 张一排（碰也当立牌读进来了），第 5 张 3饼读成 2饼，最右边多读一张 9条
-        var gemini = Recognition(concealed: Tile.parseList("123m 456m 789m 5p 5p"), melds: [.pung(Tile(.honors, 5))], source: "Gemini")
+        // Gemini：立牌 14 张 + 碰中（共 17 张）；端侧：17 张一排（碰也当立牌读进来了），第 5 张 5万读成 6万，最右边多读一张 9条
+        var gemini = Recognition(concealed: Tile.parseList("123m 456m 789m 123p 5p 5p"), melds: [.pung(Tile(.honors, 5))], source: "Gemini")
         gemini.concealed[4] = RecognizedTile(tile: Tile(.characters, 5))
-        let onDevice = Recognition(concealed: Tile.parseList("123m 466m 789m 5p 5p 中中中 9s"), source: "端侧")
+        let onDevice = Recognition(concealed: Tile.parseList("123m 466m 789m 123p 5p 5p 中中中 9s"), source: "端侧")
 
         let merged = DualReadRecognizer.merge(gemini, with: onDevice)
         XCTAssertEqual(merged.melds, [.pung(Tile(.honors, 5))])
-        XCTAssertEqual(merged.concealed.map(\.tile), Tile.parseList("123m 456m 789m 5p 5p 9s"))
+        XCTAssertEqual(merged.concealed.map(\.tile), Tile.parseList("123m 456m 789m 123p 5p 5p 9s"))
         XCTAssertEqual(merged.concealed[4].candidates, [Tile(.characters, 5), Tile(.characters, 6)])
-        XCTAssertTrue(merged.concealed[11].uncertain, "只有端侧读到的 9条要问一句")
+        XCTAssertTrue(merged.concealed[14].uncertain, "只有端侧读到的 9条要问一句")
         XCTAssertEqual(merged.reviewCount, 2)
 
-        // 规则引擎：5万 + 删掉 9条 才能和，两处都推荐
+        // 规则引擎：5万 + 删掉 9条 才能胡，两处都推荐
         let resolution = RecognitionResolver.resolve(merged, context: WinContext(selfDrawn: true))
         XCTAssertEqual(resolution.recommended[4], Tile(.characters, 5))
-        XCTAssertEqual(resolution.removals, [11])
+        XCTAssertEqual(resolution.removals, [14])
         XCTAssertNotNil(resolution.result)
     }
 
     func testMergeNotesAMeldMisread() {
-        let gemini = Recognition(concealed: Tile.parseList("123m 456m 789m 5p 5p"), melds: [.pung(Tile(.dots, 7))], source: "Gemini")
-        let onDevice = Recognition(concealed: Tile.parseList("123m 456m 789m 5p 5p 7p 7p 4p"), source: "端侧")
+        let gemini = Recognition(concealed: Tile.parseList("123m 456m 789m 123p 5p 5p"), melds: [.pung(Tile(.dots, 7))], source: "Gemini")
+        let onDevice = Recognition(concealed: Tile.parseList("123m 456m 789m 123p 5p 5p 7p 7p 4p"), source: "端侧")
         let merged = DualReadRecognizer.merge(gemini, with: onDevice)
         XCTAssertEqual(merged.reviewCount, 0, "副露里读得不一样不插进立牌")
         XCTAssertTrue(merged.notes.contains { $0.contains("碰 7饼") && $0.contains("4饼") }, "\(merged.notes)")
@@ -136,15 +136,15 @@ final class DetectionTests: XCTestCase {
 
     func testMergeIgnoresHiddenTilesOfConcealedKong() {
         // 暗杠扣着三张，端侧只看得到翻开的那张
-        let gemini = Recognition(concealed: Tile.parseList("123m 456m 789m 5p 5p"), melds: [.kong(Tile(.bamboo, 9), concealed: true)], source: "Gemini")
-        let onDevice = Recognition(concealed: Tile.parseList("123m 456m 789m 5p 5p 9s"), source: "端侧")
+        let gemini = Recognition(concealed: Tile.parseList("123m 456m 789m 123p 5p 5p"), melds: [.kong(Tile(.bamboo, 9), concealed: true)], source: "Gemini")
+        let onDevice = Recognition(concealed: Tile.parseList("123m 456m 789m 123p 5p 5p 9s"), source: "端侧")
         let merged = DualReadRecognizer.merge(gemini, with: onDevice)
         XCTAssertEqual(merged.reviewCount, 0)
         XCTAssertTrue(merged.notes.isEmpty)
     }
 
     func testDualReadShowsOnDeviceFirstAndKeepsItWhenGeminiFails() async throws {
-        let fast = MockRecognizer(name: "端侧", samples: [Recognition(concealed: Tile.parseList("1112233445566p7p"), source: "端侧")], delay: .zero)
+        let fast = MockRecognizer(name: "端侧", samples: [Recognition(concealed: Tile.parseList("1112233445566778p8p"), source: "端侧")], delay: .zero)
         let previews = Box()
         let dual = DualReadRecognizer(primary: fast, secondary: OnDeviceRecognizer())  // 第二路不可用
         let result = try await dual.recognize(RecognitionRequest(image: Data())) { previews.append($0) }
@@ -153,7 +153,7 @@ final class DetectionTests: XCTestCase {
         XCTAssertTrue(result.notes.last?.contains("没复核上") ?? false)
 
         // 两路都成功时返回合并结果
-        let slow = MockRecognizer(name: "Gemini", samples: [Recognition(concealed: Tile.parseList("1112233445566p7p"), source: "Gemini")], delay: .milliseconds(20))
+        let slow = MockRecognizer(name: "Gemini", samples: [Recognition(concealed: Tile.parseList("1112233445566778p8p"), source: "Gemini")], delay: .milliseconds(20))
         let merged = try await DualReadRecognizer(primary: fast, secondary: slow).recognize(RecognitionRequest(image: Data()))
         XCTAssertEqual(merged.source, "双读")
         XCTAssertEqual(merged.reviewCount, 0)

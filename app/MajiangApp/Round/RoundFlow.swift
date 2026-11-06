@@ -45,6 +45,7 @@ final class RoundFlow {
     /// 这手牌用户动手改过几次（换、加、删、确认拿不准的）。离线认牌改得多时，核对页提一句邀请码。
     var corrections = 0
     var specials: Set<SpecialWin> = []
+    var flowers: Set<FlowerTile> = []
     var flowerCount = 0
     var showResult = false
 
@@ -52,6 +53,7 @@ final class RoundFlow {
     @ObservationIgnored private var recognitionID = UUID()
     /// 端侧结果里的花牌数；复核期间用户改过花牌就不用 Gemini 的覆盖。
     @ObservationIgnored private var previewFlowerCount: Int?
+    @ObservationIgnored private var previewFlowers: Set<FlowerTile>?
     @ObservationIgnored private var suggestionCache: (hand: Hand, context: WinContext, value: [FixSuggestion])?
 
     init(game: Game) {
@@ -70,14 +72,20 @@ final class RoundFlow {
     var context: WinContext {
         var context = game.winContext(for: winner)
         context.selfDrawn = selfDrawn
-        context.flowerCount = game.rules.includeFlowers ? flowerCount : 0
+        if game.rules.includeFlowers {
+            context.flowers = flowers
+            context.flowerCount = flowers.isEmpty ? flowerCount : flowers.count
+        } else {
+            context.flowers = []
+            context.flowerCount = 0
+        }
         SpecialWin.apply(specials.filter { isAvailable($0) }, to: &context)
         return context
     }
 
     var scoring: Result<ScoringResult, ScoringError> { FanCalculator.score(hand, context: context) }
 
-    /// 牌型成立并且够起和番。
+    /// 牌型成立并且够起胡台数。
     var isValidWin: Bool {
         if case .success(let result) = scoring { return result.meetsMinimum(game.rules.minimumFan) }
         return false
@@ -121,13 +129,13 @@ final class RoundFlow {
         case .failure:
             return "先把牌改对"
         case .success(let result) where !result.meetsMinimum(game.rules.minimumFan):
-            return result.fanWithoutFlowers == 0 ? "无役，和不了" : "不够 \(game.rules.minimumFan) 翻役，和不了"
+            return "不够 \(game.rules.minimumFan) 台，胡不了"
         case .success:
             break
         }
-        if !winnerChosen { return "选一下谁和了" }
-        if !wayChosen { return "选一下怎么和的" }
-        if !selfDrawn && (discarder == nil || discarder == winner) { return "选一下是谁点的炮" }
+        if !winnerChosen { return "选一下谁胡了" }
+        if !wayChosen { return "选一下怎么胡的" }
+        if !selfDrawn && (discarder == nil || discarder == winner) { return "选一下是谁放的枪" }
         return nil
     }
 
@@ -195,10 +203,12 @@ final class RoundFlow {
                 recognition = try await recognizer.recognize(request)
             }
             guard recognitionID == id else { return }
-            // 复核期间用户改过花牌数，就以用户的为准
+            // 复核期间用户改过花牌，就以用户的为准
             let userFlowers = previewFlowerCount.flatMap { $0 != flowerCount ? flowerCount : nil }
+            let userFlowerSet = previewFlowers.flatMap { $0 != flowers ? flowers : nil }
             load(recognition)
             if let userFlowers { flowerCount = userFlowers }
+            if let userFlowerSet { flowers = userFlowerSet }
             steps = [.check]
         } catch {
             guard recognitionID == id else { return }
@@ -210,6 +220,7 @@ final class RoundFlow {
         guard recognitionID == id else { return }
         load(preview)
         previewFlowerCount = preview.flowerCount
+        previewFlowers = preview.flowers
         isRecognizing = false
         isReviewing = true
         steps = [.check]
@@ -225,16 +236,27 @@ final class RoundFlow {
     func load(_ recognition: Recognition) {
         tiles = recognition.concealed
         melds = recognition.melds
+        flowers = recognition.flowers
         flowerCount = recognition.flowerCount
         source = recognition.source
         notes = recognition.notes
         winningIndex = tiles.indices.last
         previewFlowerCount = nil
+        previewFlowers = nil
         corrections = 0
         reviewAtLoad = recognition.reviewCount
         let resolution = RecognitionResolver.resolve(recognition, context: context, minimumFan: game.rules.minimumFan)
         recommended = resolution.recommended
         recommendedRemovals = resolution.removals
+    }
+
+    func toggleFlower(_ flower: FlowerTile) {
+        if flowers.contains(flower) {
+            flowers.remove(flower)
+        } else {
+            flowers.insert(flower)
+        }
+        flowerCount = flowers.count
     }
 
     /// 跳过拍照：从空手牌开始手动输入。
@@ -316,7 +338,9 @@ final class RoundFlow {
             winner: winner,
             discarder: record.discarder,
             dealer: game.dealer,
-            totalFan: game.rules.paidFan(record),
+            streak: game.currentStreak,
+            totalFan: game.rules.paidHandFan(record),
+            dealerFanIncluded: false,
             fu: record.fu,
             rules: game.rules
         )

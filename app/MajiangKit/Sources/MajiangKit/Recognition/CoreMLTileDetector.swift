@@ -16,6 +16,7 @@ public final class CoreMLTileDetector: TileDetecting, @unchecked Sendable {
     private let outputName: String
     private let inputSize: Int
     private let labels: [TileDetection.Label?]
+    private let flowerTiles: [FlowerTile?]
     /// 第一遍找牌区域用低一点的阈值，最终结果用高一点的（照搬 majiang_calculator：0.35 / 0.5）。
     public var regionThreshold = 0.35
     public var threshold = 0.5
@@ -34,6 +35,7 @@ public final class CoreMLTileDetector: TileDetecting, @unchecked Sendable {
         let metadata = description.metadata[.creatorDefinedKey] as? [String: String]
         let names = metadata?["names"].map { $0.split(separator: ",").map(String.init) } ?? TileClassNames.jonChan
         labels = names.map(TileClassNames.label(for:))
+        flowerTiles = names.map(TileClassNames.flowerTile(for:))
     }
 
     /// 编译 `.mlpackage` 或 `.mlmodel`，返回 `.mlmodelc` 的位置（Mac 上跑评测用；App 里不需要）。
@@ -55,7 +57,7 @@ public final class CoreMLTileDetector: TileDetecting, @unchecked Sendable {
         if let region = YOLOv8Decoder.refinementRegion(for: result, imageWidth: image.width, imageHeight: image.height),
            let crop = image.cropping(to: CGRect(x: region.minX, y: region.minY, width: region.width, height: region.height)) {
             let second = try detectOnce(crop, threshold: threshold).map {
-                TileDetection(box: $0.box.offsetBy(x: region.minX, y: region.minY), score: $0.score, label: $0.label)
+                TileDetection(box: $0.box.offsetBy(x: region.minX, y: region.minY), score: $0.score, label: $0.label, flowerTile: $0.flowerTile)
             }
             if second.count >= result.count { result = second }
         }
@@ -71,7 +73,7 @@ public final class CoreMLTileDetector: TileDetecting, @unchecked Sendable {
               let (values, anchors) = Self.floats(output) else {
             throw RecognitionError.unavailable("端侧模型没有输出")
         }
-        return YOLOv8Decoder.decode(values, anchors: anchors, labels: labels, letterbox: letterbox, threshold: threshold)
+        return YOLOv8Decoder.decode(values, anchors: anchors, labels: labels, flowerTiles: flowerTiles, letterbox: letterbox, threshold: threshold)
     }
 
     // MARK: 图片

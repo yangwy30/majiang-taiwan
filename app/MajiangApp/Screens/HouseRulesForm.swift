@@ -1,10 +1,10 @@
 import SwiftUI
 import MajiangKit
 
-/// 桌规表单：一行一项，左边名字和一句白话，右边大数字。跟标准半庄一样的值是灰色细体，改过的是墨色。
+/// 台湾 16 张麻将桌规表单：支持 300/100、100/20、50/20 预设，以及底分、台金、圈数、严格/宽松平胡、花牌、封顶设置。
 struct HouseRulesForm: View {
     @Binding var rules: GameRules
-    /// 已经打了几局：中途改规则时，总局数不能少于这个。
+    /// 已经打了几任庄：中途改规则时，总任庄数不能少于这个。
     var playedHands = 0
     /// 截图用：一打开就点开这一项。
     var opening: RuleItem?
@@ -68,30 +68,34 @@ struct HouseRulesForm: View {
 
     /// 随改随算的示例句。
     private var example: String {
-        let han = rules.cappedFan(5)
-        let deltas = Payment.winDeltas(winner: 1, discarder: 0, dealer: 0, totalFan: han, fu: 30, rules: rules)
-        let points = deltas[1]
-        let money = ((Double(points) / 1000.0) * rules.yuanPerPoint).formatted(.number.precision(.fractionLength(0...2)))
-        return "比如闲家满贯（5 翻）：赢 \(points) 点，折合 \(money) 元。"
+        let deltas = Payment.winDeltas(winner: 1, discarder: nil, dealer: 0, streak: 0, totalFan: 4, rules: rules)
+        let childPay = abs(deltas[2])
+        let dealerPay = abs(deltas[0])
+        let total = deltas[1]
+        return "比如闲家自摸 4 台（首庄 +1 台）：两家闲家各付 \(childPay)，庄家付 \(dealerPay)，共赢 \(total)。"
     }
 }
 
 // MARK: - 预设
 
-/// 「标准半庄」「东风战」，改过就多出一个「自己定」。换预设不动千点汇率。
+/// 「300 / 100」「100 / 20」「50 / 20」，改过就多出一个「自己定」。
 private struct PresetTabs: View {
     @Binding var rules: GameRules
 
     private var current: Int {
-        rules.scoresLike(.standard) ? 0 : rules.scoresLike(.beginner) ? 1 : 2
+        if rules.scoresLike(.standard) { return 0 }
+        if rules.scoresLike(.beginner) { return 1 }
+        if rules.scoresLike(.casual) { return 2 }
+        return 3
     }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 22) {
-                tab("标准半庄", index: 0, preset: .standard)
-                tab("东风战", index: 1, preset: .beginner)
-                if current == 2 { tab("自己定", index: 2, preset: nil) }
+                tab("300 / 100", index: 0, preset: .standard)
+                tab("100 / 20", index: 1, preset: .beginner)
+                tab("50 / 20", index: 2, preset: .casual)
+                if current == 3 { tab("自己定", index: 3, preset: nil) }
                 Spacer()
             }
             Hairline()
@@ -249,109 +253,126 @@ private struct RulePicker: View {
 // MARK: - 规则项
 
 enum RuleItem: String, Identifiable, CaseIterable {
-    case rate, rounds, minimum, flowers, base
-    case cap, penalty, swap
+    case base, tai, rounds, pingHu, flowers
+    case minimum, cap, penalty, rate, swap
 
     var id: String { rawValue }
 
-    static let main: [RuleItem] = [.rate, .rounds, .minimum, .flowers, .base]
-    static let more: [RuleItem] = [.cap, .penalty, .swap]
+    static let main: [RuleItem] = [.base, .tai, .rounds, .pingHu, .flowers]
+    static let more: [RuleItem] = [.minimum, .cap, .penalty, .rate, .swap]
 
     var title: String {
         switch self {
-        case .rate: return "1000 点算"
-        case .rounds: return "局制"
-        case .minimum: return "起和"
-        case .flowers: return "宝牌"
-        case .base: return "切上满贯"
+        case .base: return "底"
+        case .tai: return "每台"
+        case .rounds: return "圈数"
+        case .pingHu: return "平胡规则"
+        case .flowers: return "花牌"
+        case .minimum: return "起胡台数"
         case .cap: return "封顶"
-        case .penalty: return "错和罚符"
+        case .penalty: return "诈胡赔付"
+        case .rate: return "1 分折算"
         case .swap: return "每圈换座"
         }
     }
 
     var hint: String {
         switch self {
-        case .rate: return "结算时每 1000 点折合多少元"
-        case .rounds: return "半庄 8 局，东风战 4 局"
-        case .minimum: return "至少几翻役才能和（宝牌不算）"
-        case .flowers: return "表宝、赤宝、里宝每张 1 翻"
-        case .base: return "30 符 4 翻、60 符 3 翻按满贯算"
-        case .cap, .penalty, .swap: return ""
+        case .base: return "每胡一把固定的基本底分（常见 300、100、50）"
+        case .tai: return "每多 1 台加收多少（常见 100、50、20）"
+        case .rounds: return "一雀四圈（东南西北 16 任庄，连庄不扣任数）"
+        case .pingHu: return "严格平胡须无花、无字、两面听、非庄家、不自摸"
+        case .flowers: return "正花 1 台、一台花（花杠）2 台、八仙过海 8 台"
+        case .minimum, .cap, .penalty, .rate, .swap: return ""
         }
     }
 
     var note: String {
         switch self {
-        case .rate: return "每桌自己定，换预设不会动这一项。比如千点 1 元时，满贯 8000 点就是 8 元。"
-        case .rounds: return "标准半庄打东场 4 局 + 南场 4 局共 8 局；时间紧可以打东风战 4 局。"
-        case .minimum: return "立直麻将标准为 1 翻起和（宝牌不算役）。少数桌规要求 2 翻起和。"
-        case .flowers: return "计入宝牌时，表宝牌、赤宝牌、里宝牌每张加 1 翻，但不计入 1 翻起和条件。"
-        case .base: return "标准规则下 30 符 4 翻和 60 符 3 翻是 7700 / 11600 点；开启切上满贯后直接按满贯 8000 / 12000 点算。"
-        case .cap: return "默认 13 翻及以上算累计役满。怕一把输太多可以设倍满（8 翻）或满贯（5 翻）封顶。"
-        case .penalty: return "推倒了却无役或凑不成和牌，赔另外三家各这么多点，这一局接着打。"
-        case .swap: return "朋友局一般不换座。"
+        case .base: return "台湾麻将采用「底 + 台」制：单家应付 = 底 + 台数 × 每台金额。常见搭配有 300/100、100/20、50/20。"
+        case .tai: return "每 1 台对应的金额。庄家连 N 拉 N 时，庄家与闲家之间额外加收 2N+1 台。"
+        case .rounds: return "标准打一雀四圈（东南西北共 16 任庄，庄家连庄或臭庄时继续连庄，北风北下庄完雀）。时间紧可打两圈或一圈。"
+        case .pingHu: return "台湾麻将严格平胡要求：无花、无字、5 组全顺子、两面听牌、非庄家、他人放枪不自摸；宽松平胡允许自摸或庄家计平胡。"
+        case .flowers: return "对应自己门风（1 东春梅、2 南夏兰、3 西秋竹、4 北冬菊）每朵 1 台，集齐春夏秋冬或梅兰竹菊一组计 2 台，八仙过海 8 台。"
+        case .minimum: return "台湾麻将默认 0 台即可胡牌（屁胡只收底分）。部分家规要求至少 1 台或 2 台起胡。"
+        case .cap: return "默认不封顶。怕一把大牌输太多可以设 8 台或 16 台封顶。"
+        case .penalty: return "推倒了却凑不成 17 张胡牌，赔另外三家各这么多分，这一局接着打。"
+        case .rate: return "默认 1 分 = 1 元（即底 300 台 100 直接就是金额）。如需按比例折算可在此调整。"
+        case .swap: return "朋友局一般固定座位不换座。"
         }
     }
 
     func isStandard(_ rules: GameRules) -> Bool {
         let standard = GameRules.standard
         switch self {
-        case .rate: return rules.yuanPerPoint == standard.yuanPerPoint
+        case .base: return rules.basePoints == standard.basePoints
+        case .tai: return rules.taiPoints == standard.taiPoints
         case .rounds: return rules.totalHands == standard.totalHands
-        case .minimum: return rules.minimumFan == standard.minimumFan
+        case .pingHu: return rules.strictPingHu == standard.strictPingHu
         case .flowers: return rules.includeFlowers == standard.includeFlowers
-        case .base: return rules.kiriageMangan == standard.kiriageMangan
+        case .minimum: return rules.minimumFan == standard.minimumFan
         case .cap: return rules.fanCap == standard.fanCap
         case .penalty: return rules.falseWinPenalty == standard.falseWinPenalty
+        case .rate: return rules.yuanPerPoint == standard.yuanPerPoint
         case .swap: return rules.swapSeatsEachRound == standard.swapSeatsEachRound
         }
     }
 
     func value(_ rules: GameRules) -> (text: String, unit: String, isNumber: Bool) {
         switch self {
-        case .rate: return (rules.yuanPerPoint.yuanText, "元", true)
+        case .base: return ("\(rules.basePoints)", "", true)
+        case .tai: return ("\(rules.taiPoints)", "/台", true)
         case .rounds:
-            if rules.totalHands == 8 { return ("半庄 8 局", "", false) }
-            if rules.totalHands == 4 { return ("东风 4 局", "", false) }
-            return ("\(rules.totalHands)", "局", true)
-        case .minimum: return ("\(rules.minimumFan)", "翻", true)
-        case .flowers: return (rules.includeFlowers ? "计宝牌" : "不计", "", false)
-        case .base: return (rules.kiriageMangan ? "开启" : "不切上", "", false)
-        case .cap: return rules.fanCap > 0 ? ("\(rules.fanCap) 翻", "", false) : ("不封顶", "", false)
-        case .penalty: return ("\(rules.falseWinPenalty) 点", "", false)
+            if rules.totalHands == 16 { return ("四圈 16 庄", "", false) }
+            if rules.totalHands == 8 { return ("两圈 8 庄", "", false) }
+            if rules.totalHands == 4 { return ("一圈 4 庄", "", false) }
+            return ("\(rules.totalHands)", "庄", true)
+        case .pingHu: return (rules.strictPingHu ? "严格" : "宽松", "", false)
+        case .flowers: return (rules.includeFlowers ? "计花牌" : "不计", "", false)
+        case .minimum: return ("\(rules.minimumFan) 台", "", false)
+        case .cap: return rules.fanCap > 0 ? ("\(rules.fanCap) 台", "", false) : ("不封顶", "", false)
+        case .penalty: return ("\(rules.falseWinPenalty)", "", false)
+        case .rate: return ("\(rules.yuanPerPoint.yuanText) 元", "", false)
         case .swap: return (rules.swapSeatsEachRound ? "换" : "不换", "", false)
         }
     }
 
     func options(playedHands: Int, current: GameRules) -> [RuleOption] {
         switch self {
-        case .rate:
-            var values = [0.5, 1, 2, 5, 10]
-            if !values.contains(current.yuanPerPoint) { values.append(current.yuanPerPoint); values.sort() }
-            return values.map { RuleOption.choice(\.yuanPerPoint, $0, "\($0.yuanText) 元", marksStandard: false) }
+        case .base:
+            var values = [300, 200, 100, 50, 500]
+            if !values.contains(current.basePoints) { values.append(current.basePoints); values.sort() }
+            return values.map { RuleOption.choice(\.basePoints, $0, "底 \($0)") }
+        case .tai:
+            var values = [100, 50, 20, 10, 200]
+            if !values.contains(current.taiPoints) { values.append(current.taiPoints); values.sort() }
+            return values.map { RuleOption.choice(\.taiPoints, $0, "每台 \($0)") }
         case .rounds:
-            return [(8, "半庄战（东南 8 局）"), (4, "东风战（4 局）"), (16, "一庄战（16 局）")].map { hands, label in
+            return [(16, "一雀四圈（东南西北 16 任庄）"), (8, "两圈半场（东南 8 任庄）"), (4, "一圈快局（东风 4 任庄）")].map { hands, label in
                 var option = RuleOption.choice(\.totalHands, hands, label)
                 option.enabled = hands >= playedHands
                 return option
             }
-        case .minimum:
-            return [1, 2].map { RuleOption.choice(\.minimumFan, $0, "\($0) 翻起和") }
-        case .flowers:
-            return [true, false].map { RuleOption.choice(\.includeFlowers, $0, $0 ? "计宝牌" : "不计宝牌") }
-        case .base:
-            return [false, true].map {
-                RuleOption.choice(\.kiriageMangan, $0, $0 ? "切上满贯（按 8000 / 12000 算）" : "按实算（7700 / 11600 点）")
+        case .pingHu:
+            return [true, false].map {
+                RuleOption.choice(\.strictPingHu, $0, $0 ? "严格平胡（无花无字、非庄家、他人放枪）" : "宽松平胡（自摸或庄家也可计平胡）")
             }
+        case .flowers:
+            return [true, false].map { RuleOption.choice(\.includeFlowers, $0, $0 ? "计花牌（正花、花杠、八仙过海）" : "不计花牌") }
+        case .minimum:
+            return [0, 1, 2, 4].map { RuleOption.choice(\.minimumFan, $0, $0 == 0 ? "0 台起胡（可屁胡）" : "\($0) 台起胡") }
         case .cap:
-            return [(0, "不封顶（13 翻累计役满）"), (13, "13 翻（役满封顶）"), (8, "8 翻（倍满封顶）"), (5, "5 翻（满贯封顶）")].map {
+            return [(0, "不封顶"), (16, "16 台封顶"), (8, "8 台封顶")].map {
                 RuleOption.choice(\.fanCap, $0.0, $0.1)
             }
         case .penalty:
-            var values = [3000, 2000, 4000]
+            var values = [800, 500, 200, 150]
             if !values.contains(current.falseWinPenalty) { values.append(current.falseWinPenalty) }
-            return values.map { RuleOption.choice(\.falseWinPenalty, $0, "每家 \($0) 点") }
+            return values.map { RuleOption.choice(\.falseWinPenalty, $0, "每家 \($0)") }
+        case .rate:
+            var values = [0.5, 1.0, 2.0, 5.0]
+            if !values.contains(current.yuanPerPoint) { values.append(current.yuanPerPoint); values.sort() }
+            return values.map { RuleOption.choice(\.yuanPerPoint, $0, "\($0.yuanText) 元", marksStandard: false) }
         case .swap:
             return [false, true].map { RuleOption.choice(\.swapSeatsEachRound, $0, $0 ? "换座" : "不换") }
         }
@@ -367,12 +388,20 @@ struct RuleOption: Identifiable {
 
     var id: String { label }
 
-    static func choice<T: Equatable>(_ keyPath: WritableKeyPath<GameRules, T>, _ value: T, _ label: String,
-                                     tag: String? = nil, marksStandard: Bool = true) -> RuleOption {
+    static func choice<T: Equatable>(
+        _ keyPath: WritableKeyPath<GameRules, T>,
+        _ value: T,
+        _ label: String,
+        tag: String? = nil,
+        marksStandard: Bool = true
+    ) -> RuleOption {
         let isStandard = marksStandard && GameRules.standard[keyPath: keyPath] == value
-        return RuleOption(label: label, tag: isStandard ? "标准" : tag,
-                          isSelected: { $0[keyPath: keyPath] == value },
-                          apply: { $0[keyPath: keyPath] = value })
+        return RuleOption(
+            label: label,
+            tag: isStandard ? "标准" : tag,
+            isSelected: { $0[keyPath: keyPath] == value },
+            apply: { $0[keyPath: keyPath] = value }
+        )
     }
 }
 

@@ -2,16 +2,33 @@
 
 ## 1. 项目定位
 - **产品**：台湾 16 张麻将（Taiwanese 16-Tile Mahjong）拍照算台 + 庄家连拉记账 iOS App（面向台湾、港澳及北美/海外华人玩家，免费无广告、无内购）。
-- **本地路径**：`/Users/yangwang/majiang-taiwan`
+- **代码仓库**：`https://github.com/yangwy30/majiang-taiwan`（本地路径：`/Users/yangwang/majiang-taiwan`）。
 - **姊妹项目**：
   - 国标麻将版 `majiang-ppc`（`/Users/yangwang/majiang-ppc`，已上架 App Store ID `6827328659`，含完整的 8 花牌春/夏/秋/冬/梅/兰/竹/菊识别与 UI 逻辑，可按需对照参考）。
   - 日本立直麻将版 `majiang-riichi`（`/Users/yangwang/majiang-riichi`，纯 Swift `MajiangKit` 架构，无 C++ 依赖，当前目录以它为脚手架初始化）。
+  - 四川麻将版 `majiang-sichuan`（`/Users/yangwang/majiang-sichuan`）。
 - **前序市场调研与立项对话**：
   - 对话 ID：`5d03456c-fc60-4b0e-8c16-82531de79d29`
   - 调研报告：`/Users/yangwang/.gemini/antigravity-insiders/brain/5d03456c-fc60-4b0e-8c16-82531de79d29/market-research.md`
   - 对话日志：`/Users/yangwang/.gemini/antigravity-insiders/brain/5d03456c-fc60-4b0e-8c16-82531de79d29/.system_generated/logs/transcript.jsonl`
+  - 台湾麻将改造实现对话 ID：`ee157ce1-2a93-4157-b1fc-3f5fa30aa677`
 
-## 2. 台湾 16 张麻将核心改造要点（与国标/日麻的差异）
+## 2. 已完成状态
+- **`app/MajiangKit`（100% 纯 Swift，无 C++ 依赖）**：
+  - `Tiles/`：17 张手牌校验（`5 面子 + 1 眼 = 17 张`）、8 花牌（`FlowerTile` 春夏秋冬/梅兰竹菊 = 1234 门风）及风位正花映射。
+  - `Recognition/`：端侧 Core ML YOLOv8n + Gemini 双读管线适配 17 张台湾麻将手牌与 8 花牌识别。
+  - `Scoring/`：完整台湾 16 张麻将算台引擎（`Fan.swift`、`FanCalculator.swift`、`WinAssistant.swift`），涵盖庄家连拉（$2N+1$ 台）、门清一摸三、不求人/半求人/全求人、真实独听（边张/坎张/单吊）、正花/花杠（一台花）/八仙过海/七抢一、三元与四喜、平胡（支持严格/宽松家规）、碰碰胡、混一色/清一色/字一色、三/四/五暗刻、呖咕呖咕（七对+一刻）、杠上开花/抢杠/海底/河底、天胡/地胡/人胡、屁胡（0 台）。
+  - `Game/Game.swift`：底+台计费（默认 `300/100`，含 `100/20`、`50/20` 预设）、庄家胡牌与流局（臭庄）连庄拉庄状态机、5 种胡牌收付场景（闲家自摸时庄家额外付 $2N+1$ 连拉台；闲家互胡不计庄家连拉台）。
+- **`app/MajiangApp`（SwiftUI iOS 客户端）**：
+  - 17 张核对页、8 花牌点选（正花标记 + 一台花/八仙过海快捷按钮）、连庄拉庄设定、牌桌臭庄连庄及台麻规则速查。
+  - `cd app/MajiangKit && swift test`（56 项测试）与 `xcodebuild -scheme Majiang` 模拟器构建均 100% 通过。
+
+## 3. 待推进方向
+1. **繁简中文与英文国际化（`zh-Hant` / `zh-Hans` / `en`）**：台湾与港澳玩家习惯繁体中文（如「莊家、連拉、門清一摸三、嚦咕嚦咕、聽牌、放槍、臭莊」），北美华人常需中英对照，可通过 `Localizable.xcstrings` 一键适配繁体/简体/英文。
+2. **模拟器全屏走查与 App Store 截图生成**：利用 `DemoScreen` 在 iOS 模拟器中逐屏验证 17 张手牌排版、花牌芯片、连庄标识，并导出繁体/简体 App Store 宣传图。
+3. **App 命名、独立 Bundle ID 与图标**：在准备提审 App Store Connect 时配置独立 Bundle ID、CloudKit 容器及专属 App Icon。
+
+## 4. 台湾 16 张麻将核心改造要点（与国标/日麻的差异）
 
 ### A. 牌数与拆解结构（5 面子 + 1 眼 = 17 张）
 - **手牌张数**：闲家开局 16 张，和牌时共 **17 张**（`5 组面子 + 1 对将眼`，每多一个杠多 1 张；呖咕呖咕/八仙过海/七抢一特殊判断）。

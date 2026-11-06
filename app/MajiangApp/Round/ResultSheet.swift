@@ -28,7 +28,7 @@ struct ResultSheet: View {
                 // 谁和、怎么和的是记错最常见的地方：墨色写清楚，点一下收起结果回核对页改
                 Button { flow.showResult = false } label: {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(record.discarder.map { "\(name(record.winner)) · \(name($0))点炮" } ?? "\(name(record.winner)) · 自摸")
+                        Text(record.discarder.map { "\(name(record.winner)) · \(name($0))放枪" } ?? "\(name(record.winner)) · 自摸")
                             .font(.system(size: 17, weight: .medium))
                             .foregroundStyle(Theme.ink)
                         Text("改 ›")
@@ -39,7 +39,7 @@ struct ResultSheet: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityHint("回到核对页改谁和了、怎么和的")
+                .accessibilityHint("回到核对页改谁胡了、怎么胡的")
                 .padding(.top, 20)
                 let paid = game.rules.paidFan(record)
                 let limit = Payment.limitName(han: paid, fu: record.fu, kiriageMangan: game.rules.kiriageMangan)
@@ -47,10 +47,7 @@ struct ResultSheet: View {
                     Text("\(record.totalFan)")
                         .font(.system(size: 88, weight: .ultraLight).monospacedDigit())
                         .tracking(-2)
-                    Text("翻").font(Theme.serif(22))
-                    Text("· \(record.fu) 符")
-                        .font(.system(size: 20, weight: .light).monospacedDigit())
-                        .foregroundStyle(Theme.gray)
+                    Text("台").font(Theme.serif(22))
                     if let limit {
                         Text("· \(limit)")
                             .font(Theme.serif(20, semibold: true))
@@ -59,7 +56,7 @@ struct ResultSheet: View {
                 }
                 .frame(maxWidth: .infinity)
                 if paid < record.totalFan {
-                    Text("桌规封顶 \(game.rules.fanCap) 翻：\(record.totalFan) 翻按 \(game.rules.fanCap) 算")
+                    Text("桌规封顶 \(game.rules.fanCap) 台：\(record.totalFan) 台按 \(game.rules.fanCap) 算")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
                         .padding(.horizontal, 12)

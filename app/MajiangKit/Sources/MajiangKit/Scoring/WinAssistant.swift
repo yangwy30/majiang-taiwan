@@ -1,59 +1,64 @@
 import Foundation
 
-/// 照片拍不出来、要用户在核对页勾一下的情况（立直、一发、双立直、岭上开花、海底、河底、抢杠）。
+/// 照片拍不出来、要用户在核对页勾一下的特殊胡牌情况（杠上开花、海底捞月、河底捞鱼、抢杠、七抢一、天地人胡）。
 public enum SpecialWin: String, CaseIterable, Hashable, Codable, Sendable {
-    /// 立直：门前清听牌宣布立直，1 翻。
-    case riichi
-    /// 一发：立直后一巡内和牌，1 翻。
-    case ippatsu
-    /// 双立直：第一巡无人副露时宣布立直，2 翻。
-    case doubleRiichi
-    /// 岭上开花：开杠后补牌自摸，1 翻。
+    /// 杠上开花：开杠或补花后摸牌自摸，1 台。
     case kongReplacement
-    /// 海底摸月：牌山最后一张自摸，1 翻。
+    /// 海底捞月：牌山最后一张自摸，1 台。
     case lastTileDraw
-    /// 河底捞鱼：全桌最后一张点炮和牌，1 翻。
+    /// 河底捞鱼：全桌最后一张放枪胡牌，1 台。
     case lastTileClaim
-    /// 抢杠：别人加杠时抢和，1 翻。
+    /// 抢杠：别人加杠时抢胡，1 台。
     case robbingTheKong
+    /// 七抢一：手握 7 张花牌抢别人第 8 张花，8 台。
+    case sevenRobbingOne
+    /// 天胡：庄家起手配牌 17 张直接胡牌，16 台。
+    case tenhou
+    /// 地胡：闲家首巡自摸胡牌，16 台。
+    case chiihou
+    /// 人胡：首巡胡别人打出的第一张牌，8 台。
+    case renhou
 
     public var name: String {
         switch self {
-        case .riichi: return "立直"
-        case .ippatsu: return "一发"
-        case .doubleRiichi: return "双立直"
-        case .kongReplacement: return "岭上开花"
-        case .lastTileDraw: return "海底摸月"
+        case .kongReplacement: return "杠上开花"
+        case .lastTileDraw: return "海底捞月"
         case .lastTileClaim: return "河底捞鱼"
         case .robbingTheKong: return "抢杠"
+        case .sevenRobbingOne: return "七抢一"
+        case .tenhou: return "天胡"
+        case .chiihou: return "地胡"
+        case .renhou: return "人胡"
         }
     }
 
     public var fan: Fan {
         switch self {
-        case .riichi: return .riichi
-        case .ippatsu: return .ippatsu
-        case .doubleRiichi: return .doubleRiichi
-        case .kongReplacement: return .rinshan
-        case .lastTileDraw: return .haitei
-        case .lastTileClaim: return .houtei
-        case .robbingTheKong: return .chankan
+        case .kongReplacement: return .kongReplacement
+        case .lastTileDraw: return .lastTileDraw
+        case .lastTileClaim: return .lastTileClaim
+        case .robbingTheKong: return .robbingTheKong
+        case .sevenRobbingOne: return .sevenRobbingOne
+        case .tenhou: return .tenhou
+        case .chiihou: return .chiihou
+        case .renhou: return .renhou
         }
     }
 
-    /// 勾选上这一项加几翻。
+    /// 勾选上这一项加几台。
     public var fanPoints: Int { fan.points }
 
     /// 一句白话说明。
     public var plain: String {
         switch self {
-        case .riichi: return "门前清听牌时宣布了立直"
-        case .ippatsu: return "立直后一巡内和牌，中间没人吃碰杠"
-        case .doubleRiichi: return "第一巡还没人吃碰杠时就立直了"
-        case .kongReplacement: return "杠完摸岭上牌，正好自摸和了"
-        case .lastTileDraw: return "摸牌山最后一张牌时自摸和了"
-        case .lastTileClaim: return "和的是别人打出的最后一张牌"
-        case .robbingTheKong: return "别人加杠时，正好抢和他加的那张"
+        case .kongReplacement: return "开杠或补花后摸进补牌，正好自摸胡了"
+        case .lastTileDraw: return "摸铁门前最后一张牌时自摸胡了"
+        case .lastTileClaim: return "胡的是别人打出的全桌最后一张牌"
+        case .robbingTheKong: return "别人加杠时，正好抢胡他加的那张牌"
+        case .sevenRobbingOne: return "自己摸到 7 张花牌，抢胡别人摸到的第 8 张花牌"
+        case .tenhou: return "庄家起手配牌 17 张直接胡牌"
+        case .chiihou: return "闲家第一巡无人吃碰杠时自摸胡牌"
+        case .renhou: return "第一巡无人吃碰杠时胡别人打出的牌"
         }
     }
 
@@ -61,60 +66,77 @@ public enum SpecialWin: String, CaseIterable, Hashable, Codable, Sendable {
     public func unavailableReason(hand: Hand, selfDrawn: Bool) -> String? {
         let isMenzen = hand.melds.allSatisfy { $0.kind == .kong && $0.isConcealed }
         switch self {
-        case .riichi, .ippatsu, .doubleRiichi:
-            guard isMenzen else { return "有吃、碰、明杠时不能立直" }
-            return nil
         case .kongReplacement:
-            guard selfDrawn else { return "岭上开花只能是自摸" }
-            guard hand.melds.contains(where: { $0.kind == .kong }) else { return "这手牌没有杠" }
-            return nil
+            return selfDrawn ? nil : "杠上开花只能是自摸"
         case .lastTileDraw:
-            return selfDrawn ? nil : "海底摸月只能是自摸"
+            return selfDrawn ? nil : "海底捞月只能是自摸"
         case .lastTileClaim:
-            return selfDrawn ? "河底捞鱼只能是点炮" : nil
+            return selfDrawn ? "河底捞鱼只能是放枪" : nil
         case .robbingTheKong:
-            guard !selfDrawn else { return "抢杠只能是点炮" }
+            guard !selfDrawn else { return "抢杠只能是放枪" }
             let ownCopies = hand.allTiles.filter { $0 == hand.winningTile }.count
             return ownCopies > 1 ? "手牌里已经有 \(ownCopies) 张 \(hand.winningTile.displayName)，别人没法加杠这张" : nil
+        case .sevenRobbingOne:
+            return nil
+        case .tenhou:
+            guard selfDrawn else { return "天胡只能是自摸" }
+            guard isMenzen else { return "有吃、碰、明杠时不能算天胡" }
+            return nil
+        case .chiihou:
+            guard selfDrawn else { return "地胡只能是自摸" }
+            guard isMenzen else { return "有吃、碰、明杠时不能算地胡" }
+            return nil
+        case .renhou:
+            guard !selfDrawn else { return "人胡只能是别人放枪" }
+            guard isMenzen else { return "有吃、碰、明杠时不能算人胡" }
+            return nil
         }
     }
 
     /// 跟这一项不能同时选的（选了新的就把冲突的旧项替掉）。
     public var conflicts: Set<SpecialWin> {
         switch self {
-        case .riichi: return [.doubleRiichi]
-        case .doubleRiichi: return [.riichi]
-        case .ippatsu: return []
-        case .kongReplacement: return [.lastTileDraw, .lastTileClaim, .robbingTheKong]
-        case .lastTileDraw: return [.kongReplacement, .lastTileClaim, .robbingTheKong]
-        case .lastTileClaim: return [.kongReplacement, .lastTileDraw, .robbingTheKong]
-        case .robbingTheKong: return [.kongReplacement, .lastTileDraw, .lastTileClaim]
+        case .kongReplacement:
+            return [.lastTileDraw, .lastTileClaim, .robbingTheKong, .tenhou, .chiihou, .renhou]
+        case .lastTileDraw:
+            return [.kongReplacement, .lastTileClaim, .robbingTheKong, .tenhou, .chiihou, .renhou]
+        case .lastTileClaim:
+            return [.kongReplacement, .lastTileDraw, .robbingTheKong, .tenhou, .chiihou, .renhou]
+        case .robbingTheKong:
+            return [.kongReplacement, .lastTileDraw, .lastTileClaim, .tenhou, .chiihou, .renhou]
+        case .sevenRobbingOne:
+            return [.tenhou, .chiihou, .renhou]
+        case .tenhou:
+            return [.kongReplacement, .lastTileDraw, .lastTileClaim, .robbingTheKong, .sevenRobbingOne, .chiihou, .renhou]
+        case .chiihou:
+            return [.kongReplacement, .lastTileDraw, .lastTileClaim, .robbingTheKong, .sevenRobbingOne, .tenhou, .renhou]
+        case .renhou:
+            return [.kongReplacement, .lastTileDraw, .lastTileClaim, .robbingTheKong, .sevenRobbingOne, .tenhou, .chiihou]
         }
     }
 
     public static func apply(_ set: Set<SpecialWin>, to context: inout WinContext) {
-        context.doubleRiichi = set.contains(.doubleRiichi)
-        context.riichi = set.contains(.riichi) || (set.contains(.ippatsu) && !set.contains(.doubleRiichi))
-        context.ippatsu = set.contains(.ippatsu)
         context.lastTileOfWall = set.contains(.lastTileDraw) || set.contains(.lastTileClaim)
         context.kongInvolved = set.contains(.kongReplacement) || set.contains(.robbingTheKong)
+        context.sevenRobbingOne = set.contains(.sevenRobbingOne)
+        context.tenhou = set.contains(.tenhou)
+        context.chiihou = set.contains(.chiihou)
+        context.renhou = set.contains(.renhou)
     }
 
     public static func from(_ context: WinContext) -> Set<SpecialWin> {
         var result: Set<SpecialWin> = []
-        if context.doubleRiichi {
-            result.insert(.doubleRiichi)
-        } else if context.riichi {
-            result.insert(.riichi)
-        }
-        if context.ippatsu { result.insert(.ippatsu) }
         if context.lastTileOfWall { result.insert(context.selfDrawn ? .lastTileDraw : .lastTileClaim) }
         if context.kongInvolved { result.insert(context.selfDrawn ? .kongReplacement : .robbingTheKong) }
+        if context.sevenRobbingOne { result.insert(.sevenRobbingOne) }
+        if context.tenhou { result.insert(.tenhou) }
+        if context.chiihou { result.insert(.chiihou) }
+        if context.renhou { result.insert(.renhou) }
         return result
     }
 }
 
-/// 改一张牌（或补一张漏读的牌）就能和的建议。
+/// 改一张牌（或补一张漏读的牌）就能胡的建议。
 public struct FixSuggestion: Hashable, Sendable {
     /// `concealed` 里的下标；nil 表示不是改某一张，而是补一张。
     public let index: Int?
@@ -131,33 +153,32 @@ public struct FixSuggestion: Hashable, Sendable {
 }
 
 public enum WinAssistant {
-    /// 和不了时用人话告诉用户为什么。能和时返回 nil。
-    public static func explain(_ hand: Hand, context: WinContext = WinContext(), minimumFan: Int = 1) -> String? {
+    /// 胡不了时用人话告诉用户为什么。能胡时返回 nil。
+    public static func explain(_ hand: Hand, context: WinContext = WinContext(), minimumFan: Int = 0) -> String? {
         switch FanCalculator.score(hand, context: context) {
         case .success(let result):
             if result.meetsMinimum(minimumFan) { return nil }
-            let doraNote = result.flowerFan > 0 ? "（宝牌 \(result.flowerFan) 翻不算进起和役）" : ""
-            if result.fanWithoutFlowers == 0 {
-                return "无役\(doraNote)，立直麻将至少要有 \(minimumFan) 翻役才能和。"
-            }
-            return "只有 \(result.fanWithoutFlowers) 翻役\(doraNote)，本场要 \(minimumFan) 翻才能和。"
+            return "只有 \(result.totalFan) 台，本桌规则要满 \(minimumFan) 台才能胡。"
         case .failure(.wrongTileCount):
-            let expected = 14 - hand.melds.count * 3
-            return "张数不对：立牌应该是 \(expected) 张，现在是 \(hand.concealed.count) 张。"
+            let expected = 17 - hand.melds.count * 3
+            return "张数不对：立牌应该是 \(expected) 张，现在是 \(hand.concealed.count) 张（台湾麻将和牌共 17 张）。"
         case .failure(.tileMoreThanFour):
             let names = hand.overusedTiles.map(\.displayName).joined(separator: "、")
             return "\(names) 超过了 4 张，一定有牌认错了。"
         case .failure(.notAWin):
-            return "这副牌凑不成和牌（需要 4 面子加 1 雀头，或七对子、国士无双）。"
+            return "这副牌凑不成胡牌（台湾 16 张麻将需要 5 组面子加 1 对将眼，或呖咕呖咕）。"
         }
     }
 
-    /// 识别差一张导致和不了时，找出改哪一张（或补哪一张）就能和。
-    /// 如果牌型本身已经成立、只是无役，不给改牌建议（牌可能没认错，是漏选了立直或真的无役）。
-    public static func fixSuggestions(for hand: Hand, context: WinContext = WinContext(),
-                                      minimumFan: Int = 1, limit: Int = 4) -> [FixSuggestion] {
+    /// 识别差一张导致胡不了时，找出改哪一张（或补哪一张）就能胡。
+    public static func fixSuggestions(
+        for hand: Hand,
+        context: WinContext = WinContext(),
+        minimumFan: Int = 0,
+        limit: Int = 4
+    ) -> [FixSuggestion] {
         guard hand.melds.allSatisfy(\.isValid) else { return [] }
-        let expected = 14 - hand.melds.count * 3
+        let expected = 17 - hand.melds.count * 3
 
         if hand.concealed.count == expected - 1 {
             return FanCalculator.waitingTiles(melds: hand.melds, standing: hand.concealed).compactMap { tile in

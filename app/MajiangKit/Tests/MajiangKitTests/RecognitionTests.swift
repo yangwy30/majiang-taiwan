@@ -162,8 +162,8 @@ final class RecognitionTests: XCTestCase {
     }
 
     func testRuleCheckRetriesOnceWithFeedback() async throws {
-        let bad = #"{"concealed":["1p","1p","1p","2p","2p","3p","3p","4p","4p","5p","4p","6p","6p","7p"],"melds":[],"flowers":0}"#
-        let good = #"{"concealed":["1p","1p","1p","2p","2p","3p","3p","4p","4p","5p","5p","6p","6p","7p"],"melds":[],"flowers":0}"#
+        let bad = #"{"concealed":["1p","1p","1p","2p","2p","3p","3p","4p","4p","5p","4p","6p","6p","7p","7p","8p","8p"],"melds":[],"flowers":0}"#
+        let good = #"{"concealed":["1p","1p","1p","2p","2p","3p","3p","4p","4p","5p","5p","6p","6p","7p","7p","8p","8p"],"melds":[],"flowers":0}"#
         let http = FakeHTTP(replies: [bad, good])
         let gemini = GeminiRecognizer(configuration: GeminiConfiguration(endpoint: .direct(FixedKey())), http: http)
         let result = try await RuleCheckedRecognizer(base: gemini).recognize(RecognitionRequest(image: Data()))
@@ -175,8 +175,8 @@ final class RecognitionTests: XCTestCase {
     }
 
     func testDualReadFlagsDisagreementsAndResolverPicksTheWinningOne() async throws {
-        let a = Recognition(concealed: Tile.parseList("1112233445566p7p"), source: "端侧")
-        var bTiles = Tile.parseList("1112233445566p7p")
+        let a = Recognition(concealed: Tile.parseList("1112233445566778p8p"), source: "端侧")
+        var bTiles = Tile.parseList("1112233445566778p8p")
         bTiles[9] = Tile(.dots, 4)
         let b = Recognition(concealed: bTiles, source: "Gemini")
 
@@ -189,9 +189,9 @@ final class RecognitionTests: XCTestCase {
         XCTAssertEqual(resolution.recommended[9], Tile(.dots, 5))
         XCTAssertTrue(resolution.result?.contains(.fullFlush) ?? false)
 
-        // 两种读法都能和（5饼、6饼都成和）时不替用户挑
+        // 两种读法都能胡（5饼、8饼都成胡）时不替用户挑
         var both = merged
-        both.concealed[9].alternatives = [Tile(.dots, 6)]
+        both.concealed[9].alternatives = [Tile(.dots, 8)]
         both.concealed[9].tile = Tile(.dots, 5)
         XCTAssertTrue(RecognitionResolver.resolve(both, context: WinContext()).recommended.isEmpty)
 
@@ -202,17 +202,17 @@ final class RecognitionTests: XCTestCase {
     }
 
     func testMergeWithDifferentCounts() {
-        let short = Recognition(concealed: Tile.parseList("123m456m789m11p23p"), source: "a")
-        let long = Recognition(concealed: Tile.parseList("123m456m789m11p234p"), source: "b")
+        let short = Recognition(concealed: Tile.parseList("123m456m789m123p11p23p"), source: "a")
+        let long = Recognition(concealed: Tile.parseList("123m456m789m123p11p234p"), source: "b")
         // 另一路多读到一张：插在对应位置，标成待确认（可能是这一路漏读了）
         let merged = DualReadRecognizer.merge(short, with: long)
-        XCTAssertEqual(merged.concealed.map(\.tile), Tile.parseList("123m456m789m11p234p"))
+        XCTAssertEqual(merged.concealed.map(\.tile), Tile.parseList("123m456m789m123p11p234p"))
         XCTAssertEqual(merged.reviewCount, 1)
-        XCTAssertTrue(merged.concealed[13].uncertain)
+        XCTAssertTrue(merged.concealed[16].uncertain)
         // 这一路多读的一张也标出来
         let other = DualReadRecognizer.merge(long, with: short)
-        XCTAssertEqual(other.concealed.count, 14)
-        XCTAssertEqual(other.concealed.indices.filter { other.concealed[$0].needsReview }, [13])
+        XCTAssertEqual(other.concealed.count, 17)
+        XCTAssertEqual(other.concealed.indices.filter { other.concealed[$0].needsReview }, [16])
     }
 
     func testMockSamplesAreConsistent() throws {

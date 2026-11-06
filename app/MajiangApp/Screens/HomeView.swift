@@ -96,7 +96,7 @@ struct HomeView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("拍照算番")
+                Text("拍照算台")
                     .font(.system(size: 34, weight: .semibold))
                     .tracking(-0.5)
                     #if DEBUG
@@ -108,7 +108,7 @@ struct HomeView: View {
             }
             // 记过几手就不用再说 App 是干什么的
             if !model.isSeasoned {
-                Text("打完一手，拍一下和牌的人的牌，App 帮你算番记账。")
+                Text("打完一手，拍一下胡牌的人的 17 张牌，自动算台与连庄拉庄记账。")
                     .font(.system(size: 15))
                     .foregroundStyle(Theme.gray)
                     .fixedSize(horizontal: false, vertical: true)
@@ -163,7 +163,7 @@ private struct MoreSheet: View {
                 .font(.system(size: 20, weight: .semibold))
                 .padding(.top, 28)
                 .padding(.bottom, 8)
-            row("役与点数怎么算", "立直日麻的役种和点数收付，都是白话", .guide, last: false)
+            row("台数与底台怎么算", "台湾 16 张麻将的台种、庄家连拉与底台收付说明", .guide, last: false)
             row("备份与换手机", backupLine, .backup, last: !showsInvite)
             if showsInvite {
                 row(inviteOn ? "AI 认牌 · 已开启" : "AI 认牌", inviteOn ? "看邀请码，或者移除" : "有邀请码就能开启，认牌更准",
@@ -245,7 +245,7 @@ private struct HistoryRow: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(game.startedAt.dayLabel).font(.system(size: 16, weight: .medium))
-                    Text(game.players.map(\.name).joined(separator: "、") + " · \(game.currentHandIndex) 局")
+                    Text(game.players.map(\.name).joined(separator: "、") + " · \(game.playedHandsCount) 局")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
                         .lineLimit(1)
@@ -303,7 +303,7 @@ private struct EmptyHome<More: View>: View {
         .bottomBar {
             Button("开一局", action: start)
                 .buttonStyle(.primary)
-            Button("第一次打日麻？先看看役和点数怎么算", action: openGuide)
+            Button("第一次打台湾 16 张？先看看台数与连拉怎么算", action: openGuide)
                 .buttonStyle(.text(size: 14))
                 .padding(.top, 10)
             // 新手机上没装 iCloud 同步时，从旧手机导出的文件导入
@@ -316,12 +316,12 @@ private struct EmptyHome<More: View>: View {
 private extension EmptyHome {
     var brand: some View {
         HStack(spacing: 12) {
-            Text("和")
+            Text("胡")
                 .font(Theme.serif(17))
                 .foregroundStyle(.white)
                 .frame(width: 30, height: 30)
                 .background(Theme.vermilion, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            Text("拍照算番").font(.system(size: 17, weight: .semibold))
+            Text("拍照算台").font(.system(size: 17, weight: .semibold))
         }
         .accessibilityElement(children: .combine)
         #if DEBUG
@@ -333,30 +333,30 @@ private extension EmptyHome {
     var headline: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("拍一下，")
-            Text("番和钱都算好。")
+            Text("台数连拉都算好。")
         }
         .font(Theme.serif(32, semibold: true))
     }
 
     func steps(rowPadding: CGFloat) -> some View {
         VStack(spacing: 0) {
-            StepRow(number: "一", title: "拍", detail: "和牌的人把牌推倒，拍一张", padding: rowPadding) {
+            StepRow(number: "一", title: "拍", detail: "胡牌的人把 17 张牌推倒，拍一张", padding: rowPadding) {
                 HStack(spacing: 2) {
                     ForEach(Array(Tile.parseList("12355p").enumerated()), id: \.offset) { _, tile in
                         TileFace(tile: tile, width: 16)
                     }
                 }
             }
-            StepRow(number: "二", title: "算", detail: "认出牌，算役、翻、符与点数", padding: rowPadding) {
+            StepRow(number: "二", title: "算", detail: "认出牌与花，算门清一摸三、连庄拉庄", padding: rowPadding) {
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text("8").font(Theme.score(30, weight: .ultraLight))
-                    Text("翻").font(Theme.serif(13, semibold: true))
+                    Text("台").font(Theme.serif(13, semibold: true))
                 }
             }
-            StepRow(number: "三", title: "记", detail: "谁给谁多少点，自动记账", padding: rowPadding) {
+            StepRow(number: "三", title: "记", detail: "底加台谁付多少，自动记账", padding: rowPadding) {
                 VStack(alignment: .trailing, spacing: 0) {
-                    Text("+8000").foregroundStyle(Theme.vermilion)
-                    Text("−4000").foregroundStyle(Theme.ink)
+                    Text("+1100").foregroundStyle(Theme.vermilion)
+                    Text("−800").foregroundStyle(Theme.ink)
                 }
                 .font(Theme.score(15))
             }

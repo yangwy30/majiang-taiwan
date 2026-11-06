@@ -26,7 +26,7 @@ struct ShareCard: View {
             } else {
                 recent.padding(.top, 26)
             }
-            Text("拍照算番 · 拍一下，番和钱都算好")
+            Text("拍照算台 · 拍一下，台数连拉都算好")
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.faint)
                 .padding(.top, 26)
@@ -61,7 +61,7 @@ struct ShareCard: View {
                     .font(.system(size: 26, weight: .semibold))
                     .tracking(-0.3)
                 Text(game.isFinished ? "一共 \(game.currentHandIndex) 局"
-                     : "打了 \(game.currentHandIndex) 局 · 还剩 \(game.remainingHands) 局")
+                     : "打了 \(game.currentHandIndex) 局 · 还剩 \(game.remainingHands) 任庄")
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
             }
@@ -156,24 +156,23 @@ struct ShareCard: View {
 }
 
 extension Game {
-    /// 「最大的一手：杨，清一色 8 翻（倍满）」。
+    /// 「最大的一手：杨，清一色 · 12 台」。
     var biggestWinLine: String? {
         guard let biggest = biggestWin else { return nil }
         let paid = rules.paidFan(biggest.win)
-        let limit = Payment.limitName(han: paid, fu: biggest.win.fu, kiriageMangan: rules.kiriageMangan)
-        let suffix = limit.map { "\($0) \(paid) 翻" } ?? "\(paid) 翻 \(biggest.win.fu) 符"
+        let topFan = biggest.win.fans.first(where: { !$0.fan.isDealerFan }) ?? biggest.win.fans.first
         return "最大的一手：\(players[biggest.win.winner].name)，"
-            + (biggest.win.fans.first.map { "\($0.fan.name) · " } ?? "") + suffix
+            + (topFan.map { "\($0.fan.name) · " } ?? "") + "\(paid) 台"
     }
 
-    /// 文字版，复制到微信里直接能看。
+    /// 文字版，复制到微信/LINE里直接能看。
     var shareText: String {
         let scores = self.scores
         var lines = [isFinished
-                     ? "立直日麻 \(startedAt.dayLabel) · 打完了，一共 \(currentHandIndex) 局"
-                     : "立直日麻 \(startedAt.dayLabel) · 打到\(handLabel)（打了 \(currentHandIndex) 局）"]
+                     ? "台湾 16 张麻将 \(startedAt.dayLabel) · 打完了，一共 \(currentHandIndex) 局"
+                     : "台湾 16 张麻将 \(startedAt.dayLabel) · 打到\(handLabel)（打了 \(currentHandIndex) 局）"]
         for player in Settlement.ranking(scores: scores) {
-            lines.append("\(players[player].name) \(Theme.signed(scores[player])) 点（\(moneyText(scores[player]))）")
+            lines.append("\(players[player].name) \(Theme.signed(scores[player]))（\(moneyText(scores[player]))）")
         }
         if isFinished {
             let transfers = Settlement.minimalTransfers(scores: scores)

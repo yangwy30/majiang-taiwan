@@ -83,6 +83,12 @@ public enum Wind: Int, Codable, CaseIterable, Sendable {
 
     public var name: String { ["东", "南", "西", "北"][rawValue] }
     public var tile: Tile { Tile(.honors, rawValue + 1) }
+    /// 对应花牌座次：1 东、2 南、3 西、4 北。
+    public var seatNumber: Int { rawValue + 1 }
+    /// 门风对应的两朵正花（如东家 = 春、梅）。
+    public var matchingFlowers: [FlowerTile] {
+        FlowerTile.allCases.filter { $0.seatNumber == seatNumber }
+    }
 
     /// 逆时针下一个（东 → 南 → 西 → 北 → 东）。
     public var next: Wind { Wind(rawValue: (rawValue + 1) % 4)! }
@@ -106,8 +112,8 @@ public struct Hand: Hashable, Codable, Sendable {
 
     public var kongCount: Int { melds.filter { $0.kind == .kong }.count }
 
-    /// 立牌张数是否正确：3 × 副露组数 + 立牌 = 14。
-    public var hasValidTileCount: Bool { concealed.count + 3 * melds.count == 14 }
+    /// 立牌张数是否正确：台湾 16 张麻将和牌为 5 面子 + 1 对将眼，即 3 × 副露组数 + 立牌 = 17。
+    public var hasValidTileCount: Bool { concealed.count + 3 * melds.count == 17 }
 
     /// 超过 4 张的牌。
     public var overusedTiles: [Tile] {

@@ -97,9 +97,12 @@ public struct DualReadRecognizer: ProgressiveTileRecognizer {
         }
         merged.concealed = concealed
 
+        merged.flowers = base.flowers.union(other.flowers)
         if base.flowerCount != other.flowerCount {
-            merged.flowerCount = max(base.flowerCount, other.flowerCount)
-            merged.notes.append("宝牌两遍数得不一样（一遍 \(base.flowerCount) 张，一遍 \(other.flowerCount) 张），在下面改")
+            merged.flowerCount = max(max(base.flowerCount, other.flowerCount), merged.flowers.count)
+            merged.notes.append("花牌两遍数得不一样（一遍 \(base.flowerCount) 张，一遍 \(other.flowerCount) 张），在下面改")
+        } else {
+            merged.flowerCount = max(base.flowerCount, merged.flowers.count)
         }
         return merged
     }
@@ -175,7 +178,7 @@ public struct RuleCheckedRecognizer: TileRecognizer {
         }
         if !FanCalculator.isWinningShape(hand) {
             let count = hand.allTiles.count
-            return "按立直麻将规则，你读出的这 \(count) 张牌拼不成和牌。请对照照片逐张再核对一遍（常见的错是条子、饼子的点数差一，或漏读了被遮挡、切边的牌）。如果照片里的牌确实就是这样，就照实输出，不要为了凑成和牌而改。"
+            return "按台湾 16 张麻将规则，你读出的这 \(count) 张牌拼不成和牌（标准和牌为 5 组面子 + 1 对眼共 17 张，或呖咕呖咕）。请对照照片逐张再核对一遍（常见的错是条子、饼子的点数差一，或漏读了被遮挡、切边的牌）。如果照片里的牌确实就是这样，就照实输出，不要为了凑成和牌而改。"
         }
         return nil
     }

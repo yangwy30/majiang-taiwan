@@ -139,22 +139,23 @@ public struct GeminiRecognizer: TileRecognizer {
 
     /// 基于研究里效果最好的提示词（tools/gemini-test 的 PROMPT + PIP_HINT），改成按 App 的拍照约定分开立牌和副露。
     static let prompt = """
-    这是一张麻将照片，拍的是和牌那家的牌：手牌推倒排成一排，和的那张放在最右；吃、碰、杠放在旁边，暗杠翻开一张。
+    这是一张台湾 16 张麻将照片，拍的是和牌那家的牌：手牌推倒排成一排，和的那张放在最右；吃、碰、杠放在旁边，暗杠翻开一张。
     请逐张读出这家的牌。
     - 不要算进别人的牌、打出去的牌（牌河）、牌墙和桌上其他散牌。
     - 记法：1m-9m=万子，1p-9p=饼/筒子，1s-9s=条/索子，字牌用汉字：东 南 西 北 中 发 白。
     - concealed：排成一排的手牌，从左到右，包括最右边和的那张。
     - melds：摆在旁边的每一组吃、碰、杠。kind 写 chow（吃）、pung（碰）、kong（明杠）或 concealed_kong（暗杠）；杠写满 4 张，扣着的那张也算作这张杠牌。
-    - 花牌（春夏秋冬梅兰竹菊）不要放进牌里，只在 flowers 里报数量。
+    - 花牌（春夏秋冬梅兰竹菊）不要放进 concealed 里，只在 flowers 里报数量（如果看得清具体花名，在 flowerTiles 里列出，如 ["春", "梅"]）。
     特别注意：条子和饼子要逐张数点数，不要凭整体印象猜。
     - 条子数竹节根数：1条通常画成一只鸟；5条是四角各一根 + 中间一根（中间那根常是红色）；4条是两列各两根、中间没有；6条是两排各三根；7条是顶上一根 + 下面六根；8条常画成 W/M 形；9条是三排各三根。
     - 饼子数圆点：6饼是上面 2 个 + 下面 4 个；7饼是斜着 3 个 + 下面 4 个；8饼是两列各 4 个。
-    - 每张先数清楚再写，写完确认张数：立牌 + 每组副露 3 张（杠 4 张）一般共 14 张，每个杠多 1 张。
+    - 每张先数清楚再写，写完确认张数：台湾 16 张麻将，立牌 + 每组副露 3 张（杠 4 张）一般共 17 张（5 组面子 + 1 对将眼），每个杠多 1 张。
     不要判断和没和，只输出 JSON。
     """
 
     /// 34 种牌的记法，限定模型只能输出这些。
     static let tileNotations: [String] = Tile.all.map(\.notation)
+    static let flowerNotations: [String] = FlowerTile.allCases.map(\.name)
 
     static let schema: [String: Any] = [
         "type": "OBJECT",
@@ -170,6 +171,7 @@ public struct GeminiRecognizer: TileRecognizer {
                 "required": ["kind", "tiles"],
             ]],
             "flowers": ["type": "INTEGER"],
+            "flowerTiles": ["type": "ARRAY", "items": ["type": "STRING", "enum": flowerNotations]],
             "confidence": ["type": "STRING", "enum": ["high", "medium", "low"]],
         ],
         "required": ["concealed", "melds", "flowers"],
@@ -200,6 +202,7 @@ public struct GeminiRecognizer: TileRecognizer {
         var concealed: [String]
         var melds: [MeldAnswer]?
         var flowers: Int?
+        var flowerTiles: [String]?
         var confidence: String?
     }
 
@@ -254,11 +257,15 @@ public struct GeminiRecognizer: TileRecognizer {
         }
 
         var flowers = max(0, answer.flowers ?? 0)
+        var parsedFlowerTiles = Set((answer.flowerTiles ?? []).compactMap(FlowerTile.init(token:)))
         var notes: [String] = []
         func read(_ tokens: [String]) -> [Tile] {
             tokens.compactMap { token in
                 if let tile = Tile(notation: token) { return tile }
-                if let first = token.first, flowerNames.contains(first) {
+                if let flower = FlowerTile(token: token) {
+                    parsedFlowerTiles.insert(flower)
+                    flowers = max(flowers, parsedFlowerTiles.count)
+                } else if let first = token.first, flowerNames.contains(first) {
                     flowers += 1
                 } else {
                     notes.append("有一张牌没认出来（\(token)）")
@@ -282,7 +289,13 @@ public struct GeminiRecognizer: TileRecognizer {
                 concealed.insert(contentsOf: tiles.map { RecognizedTile(tile: $0, uncertain: true) }, at: 0)
             }
         }
-        var recognition = Recognition(concealed: concealed, melds: melds, flowerCount: flowers, source: "Gemini")
+        var recognition = Recognition(
+            concealed: concealed,
+            melds: melds,
+            flowerCount: max(flowers, parsedFlowerTiles.count),
+            flowers: parsedFlowerTiles,
+            source: "Gemini"
+        )
         recognition.notes = notes
         return recognition
     }
@@ -294,7 +307,8 @@ public struct GeminiRecognizer: TileRecognizer {
                 let kind = meld.kind == .kong ? (meld.isConcealed ? "concealed_kong" : "kong") : meld.kind.rawValue
                 return Answer.MeldAnswer(kind: kind, tiles: meld.tiles.map(\.notation))
             },
-            flowers: recognition.flowerCount)
+            flowers: recognition.flowerCount,
+            flowerTiles: recognition.flowers.isEmpty ? nil : recognition.flowers.sorted().map(\.name))
         let data = (try? JSONEncoder().encode(answer)) ?? Data()
         return String(decoding: data, as: UTF8.self)
     }

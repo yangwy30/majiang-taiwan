@@ -53,15 +53,17 @@ struct HandDetailView: View {
     }
 
     private func content(_ game: Game, record: HandRecord, win: WinRecord, number: Int) -> some View {
-        ScrollView {
+        let streak = game.streak(ofHand: record.handIndex)
+        let streakText = streak > 0 ? "（连\(streak)拉\(streak)）" : ""
+        return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("第 \(number) 局 · \(game.prevalentWind(ofHand: record.handIndex).name)场 · \(game.players[game.dealer(ofHand: record.handIndex)].name)坐庄")
+                Text("第 \(number) 局 · \(game.prevalentWind(ofHand: record.handIndex).name)圈 · \(game.players[game.dealer(ofHand: record.handIndex)].name)坐庄\(streakText)")
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.gray)
                     .padding(.top, 6)
 
                 HStack(alignment: .firstTextBaseline) {
-                    Text(win.isSelfDrawn ? "\(game.players[win.winner].name)自摸" : "\(game.players[win.winner].name)和")
+                    Text(win.isSelfDrawn ? "\(game.players[win.winner].name)自摸" : "\(game.players[win.winner].name)胡")
                         .font(.system(size: 30, weight: .semibold))
                         .tracking(-0.4)
                         .lineLimit(1)
@@ -71,17 +73,14 @@ struct HandDetailView: View {
                         Text("\(win.totalFan)")
                             .font(.system(size: 46, weight: .ultraLight).monospacedDigit())
                             .tracking(-1)
-                        Text("翻").font(Theme.serif(18))
-                        Text("· \(win.fu) 符")
-                            .font(.system(size: 16, weight: .light).monospacedDigit())
-                            .foregroundStyle(Theme.gray)
+                        Text("台").font(Theme.serif(18))
                     }
                     .accessibilityElement(children: .combine)
                 }
                 .padding(.top, 2)
 
                 if game.rules.paidFan(win) < win.totalFan {
-                    Text("桌规封顶 \(game.rules.fanCap) 翻：\(win.totalFan) 翻按 \(game.rules.fanCap) 算")
+                    Text("桌规封顶 \(game.rules.fanCap) 台：\(win.totalFan) 台按 \(game.rules.fanCap) 算")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
                         .padding(.horizontal, 12)
@@ -100,8 +99,8 @@ struct HandDetailView: View {
                             .padding(.top, 4)
                     }
                 } else {
-                    // 没拍照、在账本里直接改成「和了」的局，只有番数
-                    Text(win.discarder.map { "\(game.players[$0].name)点的炮。" } ?? "自摸。")
+                    // 没拍照、在账本里直接改成「胡了」的局，只有台数
+                    Text(win.discarder.map { "\(game.players[$0].name)放的枪。" } ?? "自摸。")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
                         .padding(.top, 14)
@@ -133,12 +132,12 @@ struct HandDetailView: View {
                 }
 
                 if win.fanOverride == nil && !win.fans.isEmpty && win.hand != nil {
-                    SectionLabel("役种与宝牌")
+                    SectionLabel("台种与花牌")
                         .padding(.top, 26)
                         .padding(.bottom, 6)
                     FanList(win: win)
                 } else {
-                    Text("翻数是手填的，没有役种明细。")
+                    Text("台数是手填的，没有台种明细。")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.gray)
                         .padding(.top, 18)

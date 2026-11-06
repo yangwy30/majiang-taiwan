@@ -61,7 +61,7 @@ struct EditHandSheet: View {
     }
 
     private var kinds: [(Kind, String)] {
-        var options: [(Kind, String)] = [(.win, "和了"), (.drawn, "没人和"), (.falseWin, "和错了")]
+        var options: [(Kind, String)] = [(.win, "胡了"), (.drawn, "臭庄"), (.falseWin, "诈胡")]
         if case .manual = record.outcome { options.append((.manual, "直接改分")) }
         return options
     }
@@ -119,7 +119,7 @@ struct EditHandSheet: View {
     private var minimumFan: Int { game.rules.minimumFan + flowerFan }
 
     private var blockedReason: String? {
-        if kind == .win && !selfDrawn && discarder == nil { return "选一下谁点的炮" }
+        if kind == .win && !selfDrawn && discarder == nil { return "选一下谁放的枪" }
         if case .failure(let error) = preview { return error.message }
         return nil
     }
@@ -132,7 +132,7 @@ struct EditHandSheet: View {
 
                     switch kind {
                     case .win: winSection
-                    case .drawn: note("这局没人和，不计分。")
+                    case .drawn: note("这局臭庄（流局），不计分，本局庄家继续连庄（连庄数 +1）。")
                     case .falseWin: falseWinSection
                     case .manual: note("直接改的分不能在这里改。要重填就删掉这一局，再从右上角「直接改分」记一条。")
                     }
@@ -182,15 +182,15 @@ struct EditHandSheet: View {
 
     @ViewBuilder
     private var winSection: some View {
-        SectionLabel("谁和了")
+        SectionLabel("谁胡了")
             .padding(.top, 28)
             .padding(.bottom, 10)
         chips(selected: winner) { winner = $0 }
 
-        SectionLabel("怎么和的")
+        SectionLabel("怎么胡的")
             .padding(.top, 28)
             .padding(.bottom, 10)
-        SegmentedSwitch(options: [(true, "自摸"), (false, "点炮")], selection: $selfDrawn)
+        SegmentedSwitch(options: [(true, "自摸"), (false, "放枪")], selection: $selfDrawn)
         if !selfDrawn {
             Text("是谁打的？")
                 .font(.system(size: 14))
@@ -216,29 +216,29 @@ struct EditHandSheet: View {
 
     private var fanRow: some View {
         HStack {
-            Text("翻数").font(.system(size: 16))
+            Text("牌型台数").font(.system(size: 16))
             Spacer()
             HStack(spacing: 14) {
-                stepButton("minus", label: "少一翻") { fanEdit = max(minimumFan, shownFan - 1) }
+                stepButton("minus", label: "少一台") { fanEdit = max(minimumFan, shownFan - 1) }
                     .disabled(shownFan <= minimumFan)
                 Text("\(shownFan)")
                     .font(.system(size: 17).monospacedDigit())
                     .frame(minWidth: 28)
-                stepButton("plus", label: "多一翻") { fanEdit = shownFan + 1 }
+                stepButton("plus", label: "多一台") { fanEdit = shownFan + 1 }
             }
         }
         .frame(minHeight: 60)
     }
 
     private var fanNote: String {
-        let flowers = flowerFan > 0 ? "含宝牌 \(flowerFan) 翻。" : ""
+        let flowers = flowerFan > 0 ? "含花牌 \(flowerFan) 台。" : ""
         if fanEdit != nil || originalWin?.fanOverride != nil || originalWin == nil {
-            return flowers + "翻数是手填的，账本里不再列役种。"
+            return flowers + "台数是手填的（庄家连拉台在结算时自动加），账本里不再列台种明细。"
         }
         if originalWin?.hand != nil {
-            return flowers + "按拍下的牌自动算，换了谁和、自摸还是点炮会重算。要直接改就点加减。"
+            return flowers + "按拍下的牌自动算，换了谁胡、自摸还是放枪会重算。要直接改就点加减。"
         }
-        return flowers + "要改翻数就点加减。"
+        return flowers + "要改台数就点加减。"
     }
 
     // MARK: 和错了

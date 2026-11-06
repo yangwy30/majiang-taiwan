@@ -27,7 +27,65 @@ public enum Suit: Int, Codable, CaseIterable, Sendable {
     }
 }
 
-/// 一张牌（不含花牌，花牌只计数量）。
+/// 台湾麻将 8 张花牌：四季（春夏秋冬 = 1234）与四君子（梅兰竹菊 = 1234），对应门风 1东 / 2南 / 3西 / 4北。
+public enum FlowerTile: String, CaseIterable, Hashable, Codable, Comparable, Sendable {
+    case spring = "春"
+    case summer = "夏"
+    case autumn = "秋"
+    case winter = "冬"
+    case plum = "梅"
+    case orchid = "兰"
+    case bamboo = "竹"
+    case chrysanthemum = "菊"
+
+    public var name: String { rawValue }
+
+    /// 1 东、2 南、3 西、4 北。
+    public var seatNumber: Int {
+        switch self {
+        case .spring, .plum: return 1
+        case .summer, .orchid: return 2
+        case .autumn, .bamboo: return 3
+        case .winter, .chrysanthemum: return 4
+        }
+    }
+
+    public var isSeason: Bool {
+        switch self {
+        case .spring, .summer, .autumn, .winter: return true
+        case .plum, .orchid, .bamboo, .chrysanthemum: return false
+        }
+    }
+
+    public static let seasons: Set<FlowerTile> = [.spring, .summer, .autumn, .winter]
+    public static let plants: Set<FlowerTile> = [.plum, .orchid, .bamboo, .chrysanthemum]
+
+    private var sortOrder: Int {
+        Self.allCases.firstIndex(of: self) ?? 0
+    }
+
+    public static func < (lhs: FlowerTile, rhs: FlowerTile) -> Bool {
+        lhs.sortOrder < rhs.sortOrder
+    }
+
+    /// 解析 `春`..`菊` 或 YOLO 类别名 `1S`..`4S`（春夏秋冬）、`1F`..`4F`（梅兰竹菊）。
+    public init?(token: String) {
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch trimmed.uppercased() {
+        case "春", "1S": self = .spring
+        case "夏", "2S": self = .summer
+        case "秋", "3S": self = .autumn
+        case "冬", "4S": self = .winter
+        case "梅", "1F": self = .plum
+        case "兰", "蘭", "2F": self = .orchid
+        case "竹", "3F": self = .bamboo
+        case "菊", "4F": self = .chrysanthemum
+        default: return nil
+        }
+    }
+}
+
+/// 一张牌（不含花牌，花牌单独管理）。
 public struct Tile: Hashable, Comparable, Sendable {
     public let suit: Suit
     /// 数牌 1–9；字牌 1 东 2 南 3 西 4 北 5 中 6 发 7 白。

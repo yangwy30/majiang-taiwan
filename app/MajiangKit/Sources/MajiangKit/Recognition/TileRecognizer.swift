@@ -27,20 +27,23 @@ public struct Recognition: Hashable, Codable, Sendable {
     /// 摆在旁边的吃、碰、杠。
     public var melds: [Meld]
     public var flowerCount: Int
+    /// 识别出的具体花牌（春夏秋冬梅兰竹菊）。
+    public var flowers: Set<FlowerTile>
     /// 哪一路识别出来的，例如「Gemini」「端侧」「双读」。
     public var source: String
     /// 识别过程中的说明，例如「有一张牌没认出来」，显示在确认页。
     public var notes: [String] = []
 
-    public init(concealed: [RecognizedTile], melds: [Meld] = [], flowerCount: Int = 0, source: String) {
+    public init(concealed: [RecognizedTile], melds: [Meld] = [], flowerCount: Int = 0, flowers: Set<FlowerTile> = [], source: String) {
         self.concealed = concealed
         self.melds = melds
-        self.flowerCount = flowerCount
+        self.flowers = flowers
+        self.flowerCount = max(flowerCount, flowers.count)
         self.source = source
     }
 
-    public init(concealed tiles: [Tile], melds: [Meld] = [], flowerCount: Int = 0, source: String) {
-        self.init(concealed: tiles.map { RecognizedTile(tile: $0) }, melds: melds, flowerCount: flowerCount, source: source)
+    public init(concealed tiles: [Tile], melds: [Meld] = [], flowerCount: Int = 0, flowers: Set<FlowerTile> = [], source: String) {
+        self.init(concealed: tiles.map { RecognizedTile(tile: $0) }, melds: melds, flowerCount: flowerCount, flowers: flowers, source: source)
     }
 
     /// 按当前读法组成的手牌，和张取最右一张。
@@ -147,17 +150,19 @@ public struct MockRecognizer: TileRecognizer {
         return samples[counter.next() % samples.count]
     }
 
-    /// 清一色（mockup 里那手）带一张两路读得不一样的牌；一手带碰和暗杠的；一手不成和、需要改牌的。
+    /// 清一色（17 张）带一张两路读得不一样的牌；一手带碰和暗杠的（11 立牌 + 2 组副露 = 17 张）；一手不成和、需要改牌的。
     public static let defaultSamples: [Recognition] = {
-        var flush = Recognition(concealed: Tile.parseList("1112233445566p 7p"), source: "演示")
+        var flush = Recognition(concealed: Tile.parseList("1112233445566p 789p 7p"), source: "演示")
         flush.concealed[9] = RecognizedTile(tile: Tile(.dots, 5), alternatives: [Tile(.dots, 4)])
 
         let melded = Recognition(
-            concealed: Tile.parseList("123m 567m 中中"),
+            concealed: Tile.parseList("123m 567m 234p 中中"),
             melds: [.pung(Tile(.honors, 1)), .kong(Tile(.characters, 9), concealed: true)],
-            flowerCount: 2, source: "演示")
+            flowerCount: 2,
+            flowers: [.spring, .plum],
+            source: "演示")
 
-        let misread = Recognition(concealed: Tile.parseList("234m 456p 567s 234s 5m 6m"), source: "演示")
+        let misread = Recognition(concealed: Tile.parseList("234m 456p 567s 234s 678m 5m 6m"), source: "演示")
         return [flush, melded, misread]
     }()
 

@@ -179,7 +179,7 @@ struct CaptureView: View {
 
     private func sampleHand(tileWidth: CGFloat) -> some View {
         HStack(spacing: 2) {
-            ForEach(Array(Tile.parseList("11122334455667p").enumerated()), id: \.offset) { _, tile in
+            ForEach(Array(Tile.parseList("11122334455667899p").enumerated()), id: \.offset) { _, tile in
                 TileFace(tile: tile, width: tileWidth, state: .dim)
             }
         }

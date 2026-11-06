@@ -65,7 +65,7 @@ struct TableView: View {
                     Text("账本").font(.system(size: 14, weight: .medium))
                     Spacer()
                     Text(game.isFinished ? "打了 \(game.currentHandIndex) 局"
-                         : "打了 \(game.currentHandIndex) 局 · 还剩 \(game.remainingHands) 局")
+                         : "打了 \(game.currentHandIndex) 局 · 还剩 \(game.remainingHands) 任庄")
                         .font(.system(size: 14))
                 }
                 .foregroundStyle(Theme.gray)
@@ -210,11 +210,12 @@ struct TableView: View {
         }
     }
 
-    /// 截图用：打开「这场的规则」时预先把底分改成 5，好看到重算预览。
+    /// 截图用：打开「这场的规则」时预先把底台改成 100/20，好看到重算预览。
     private func demoRulesDraft(_ game: Game) -> GameRules? {
         guard model.demoScreen == .gameRules else { return nil }
         var rules = game.rules
-        rules.basePoints = 5
+        rules.basePoints = 100
+        rules.taiPoints = 20
         return rules
     }
 
@@ -308,13 +309,17 @@ private struct TableDiagram: View {
         let seating = game.seating(ofRound: game.roundIndex(ofHand: hand))
         let me = game.position(of: game.me, inHand: hand)
         let at = { (offset: Int) in seating[(me + offset) % 4] }
+        let slot = game.dealerSlot(ofHand: hand)
+        let streak = game.streak(ofHand: hand)
         ZStack {
             VStack(spacing: 6) {
                 Text(game.prevalentWind(ofHand: hand).name)
                     .font(Theme.serif(compact ? 48 : 56))
-                Text(game.isFinished ? "打完了" : "场 · 第 \(hand % 4 + 1) 局")
+                Text(game.isFinished ? "打完了"
+                     : streak > 0 ? "圈 · 第 \(slot + 1) 庄 · 连\(streak)拉\(streak)"
+                     : "圈 · 第 \(slot + 1) 庄")
                     .font(.system(size: 14))
-                    .foregroundStyle(Theme.gray)
+                    .foregroundStyle(streak > 0 && !game.isFinished ? Theme.vermilion : Theme.gray)
             }
             .frame(width: compact ? 140 : 168, height: compact ? 140 : 168)
             .background {
@@ -355,6 +360,11 @@ private struct SeatLabel: View {
                     .minimumScaleFactor(0.7)
                 if game.dealer(ofHand: hand) == player && !game.isFinished {
                     DealerStamp(size: 18)
+                    if game.streak(ofHand: hand) > 0 {
+                        Text("连\(game.streak(ofHand: hand))")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.vermilion)
+                    }
                 }
             }
             Text(Theme.signed(game.scores[player]))

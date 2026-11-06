@@ -39,18 +39,21 @@ public struct DetectionBox: Hashable, Sendable {
 public struct TileDetection: Hashable, Sendable {
     public enum Label: Hashable, Sendable {
         case tile(Tile)
-        /// 花牌（春夏秋冬梅兰竹菊），只计数量。
+        /// 花牌（春夏秋冬梅兰竹菊）。
         case flower
     }
 
     public var box: DetectionBox
     public var score: Double
     public var label: Label
+    /// 当 `label == .flower` 且模型识别出具体是哪朵花（如 `1S` 春、`3F` 竹）时填入。
+    public var flowerTile: FlowerTile?
 
-    public init(box: DetectionBox, score: Double, label: Label) {
+    public init(box: DetectionBox, score: Double, label: Label, flowerTile: FlowerTile? = nil) {
         self.box = box
         self.score = score
         self.label = label
+        self.flowerTile = flowerTile
     }
 
     public var tile: Tile? {
@@ -82,8 +85,14 @@ public enum TileClassNames {
             // 大写 F/S 是 Jon Chan 的花牌和季节牌；小写 s 是我们记法里的条子，下面按记法解析
             if letter == "F" || letter == "S" { return .flower }
         }
+        if FlowerTile(token: name) != nil { return .flower }
         if name.lowercased() == "flower" || name.lowercased() == "season" { return .flower }
         return Tile(notation: name).map { .tile($0) }
+    }
+
+    /// 如果类别名对应具体的花牌（如 `1S` 春、`3F` 竹），返回该花牌。
+    public static func flowerTile(for name: String) -> FlowerTile? {
+        FlowerTile(token: name)
     }
 }
 
@@ -121,6 +130,7 @@ public enum YOLOv8Decoder {
     /// 解码 YOLOv8 检测头的原始输出：形状 `[4 + 类别数, anchors]`，按行存（先 anchors 个 cx，再 anchors 个 cy …）。
     /// 每个 anchor 取分数最高的类别，过阈值后做不分类别的 NMS（和 Python 版 `cv2.dnn.NMSBoxes` 一样）。
     public static func decode(_ output: UnsafeBufferPointer<Float>, anchors: Int, labels: [TileDetection.Label?],
+                              flowerTiles: [FlowerTile?]? = nil,
                               letterbox: Letterbox, threshold: Double, iouThreshold: Double = 0.45) -> [TileDetection] {
         let classes = output.count / anchors - 4
         guard classes > 0, output.count == (4 + classes) * anchors else { return [] }
@@ -142,14 +152,16 @@ public enum YOLOv8Decoder {
         return kept.compactMap { i in
             let c = candidates[i]
             guard c.cls < labels.count, let label = labels[c.cls] else { return nil }
-            return TileDetection(box: c.box, score: c.score, label: label)
+            let flower = (flowerTiles != nil && c.cls < flowerTiles!.count) ? flowerTiles![c.cls] : nil
+            return TileDetection(box: c.box, score: c.score, label: label, flowerTile: flower)
         }
     }
 
     public static func decode(_ output: [Float], anchors: Int, labels: [TileDetection.Label?],
+                              flowerTiles: [FlowerTile?]? = nil,
                               letterbox: Letterbox, threshold: Double, iouThreshold: Double = 0.45) -> [TileDetection] {
         output.withUnsafeBufferPointer {
-            decode($0, anchors: anchors, labels: labels, letterbox: letterbox, threshold: threshold, iouThreshold: iouThreshold)
+            decode($0, anchors: anchors, labels: labels, flowerTiles: flowerTiles, letterbox: letterbox, threshold: threshold, iouThreshold: iouThreshold)
         }
     }
 
@@ -190,8 +202,14 @@ public enum TileLayout {
     public static func recognition(from detections: [TileDetection], source: String = "端侧") -> Recognition {
         let tiles = detections.filter { $0.tile != nil }
         let hand = handTiles(in: tiles)
-        let flowers = nearbyFlowers(detections.filter { $0.label == .flower }, hand: hand)
-        var recognition = Recognition(concealed: hand.compactMap(\.tile), flowerCount: flowers, source: source)
+        let validFlowers = nearbyFlowerDetections(detections.filter { $0.label == .flower }, hand: hand)
+        let specificFlowers = Set(validFlowers.compactMap(\.flowerTile))
+        var recognition = Recognition(
+            concealed: hand.compactMap(\.tile),
+            flowerCount: max(validFlowers.count, specificFlowers.count),
+            flowers: specificFlowers,
+            source: source
+        )
         let dropped = tiles.count - hand.count
         if dropped > 0 {
             recognition.notes.append("画面里还有 \(dropped) 张别的牌，没算进去")
@@ -200,12 +218,16 @@ public enum TileLayout {
     }
 
     /// 花牌一般摆在手牌前后，大小和手牌差不多的才算。
-    static func nearbyFlowers(_ flowers: [TileDetection], hand: [TileDetection]) -> Int {
-        guard !hand.isEmpty else { return 0 }
+    static func nearbyFlowerDetections(_ flowers: [TileDetection], hand: [TileDetection]) -> [TileDetection] {
+        guard !hand.isEmpty else { return [] }
         let tileHeight = median(hand.map(\.box.height))
         let top = hand.map(\.box.minY).min()! - 3 * tileHeight
         let bottom = hand.map(\.box.maxY).max()! + 3 * tileHeight
-        return flowers.filter { (0.6...1.6).contains($0.box.height / tileHeight) && (top...bottom).contains($0.box.midY) }.count
+        return flowers.filter { (0.6...1.6).contains($0.box.height / tileHeight) && (top...bottom).contains($0.box.midY) }
+    }
+
+    static func nearbyFlowers(_ flowers: [TileDetection], hand: [TileDetection]) -> Int {
+        nearbyFlowerDetections(flowers, hand: hand).count
     }
 
     /// 留下手牌，按阅读顺序排好（只给牌，不含花牌）。

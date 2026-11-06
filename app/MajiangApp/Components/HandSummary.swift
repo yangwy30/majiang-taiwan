@@ -8,11 +8,11 @@ struct FanList: View {
     var body: some View {
         VStack(spacing: 0) {
             ForEach(win.fans, id: \.fan) { entry in
-                FanRow(name: entry.count > 1 ? "\(entry.fan.name) ×\(entry.count)" : entry.fan.name,
+                FanRow(name: entry.displayName,
                        plain: entry.fan.explanation, points: entry.points)
             }
             if win.flowerFan > 0 {
-                FanRow(name: "宝牌 ×\(win.flowerFan)", plain: "表宝牌、赤宝牌、里宝牌每张 1 翻，不算进起和役", points: win.flowerFan)
+                FanRow(name: "正花 ×\(win.flowerFan)", plain: "对应自己门风座位的花牌，每朵 1 台", points: win.flowerFan)
             }
         }
     }

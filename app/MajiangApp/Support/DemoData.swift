@@ -47,28 +47,28 @@ enum DemoData {
         let day: TimeInterval = 86_400
 
         var older = Game(players: [players[0], players[1], Player(name: "老王"), players[3]], startedAt: Date().addingTimeInterval(-8 * day))
-        win(&older, winner: 2, discarder: 0, hand: "123m 456m 789s 234p 55s")
-        win(&older, winner: 0, discarder: nil, hand: "234m 456m 678m 东东东 99m")
+        win(&older, winner: 2, discarder: 0, hand: "123m 456m 789s 234p 567p 55s")
+        win(&older, winner: 0, discarder: nil, hand: "234m 456m 678m 123p 东东东 99m")
         older.end()
         archive.upsert(older)
 
         var last = Game(players: players, startedAt: Date().addingTimeInterval(-1 * day))
-        win(&last, winner: 0, discarder: nil, hand: "1112233445566p 7p")
-        win(&last, winner: 3, discarder: 1, hand: "123s 456s 789s 南南南 22m")
+        win(&last, winner: 0, discarder: nil, hand: "1112233445566778p 8p")
+        win(&last, winner: 3, discarder: 1, hand: "123s 456s 789s 234m 南南南 22m")
         last.end()
         archive.upsert(last)
 
         var houseRules = GameRules()
         if let screen = DemoScreen.current, screen.usesHouseRules {
-            houseRules.kiriageMangan = true
-            houseRules.fanCap = screen == .resultCapped ? 5 : 8
-            houseRules.yuanPerPoint = 2
+            houseRules.basePoints = 100
+            houseRules.taiPoints = 20
+            houseRules.fanCap = screen == .resultCapped ? 8 : 16
         }
         var active = Game(players: players, rules: houseRules)
-        win(&active, winner: 0, discarder: nil, hand: "1112233445566p 7p")
-        win(&active, winner: 2, discarder: 1, melds: [.pung(Tile(suit: .honors, rank: 6)!)], hand: "234m 345s 45p 88s 6p")
+        win(&active, winner: 0, discarder: nil, hand: "1112233445566778p 8p")
+        win(&active, winner: 2, discarder: 1, melds: [.pung(Tile(suit: .honors, rank: 6)!)], hand: "234m 345s 678s 45p 88s 6p")
         _ = try? active.recordDraw()
-        win(&active, winner: 3, discarder: nil, hand: "234m 456m 678m 东东东 99m")
+        win(&active, winner: 3, discarder: nil, hand: "234m 456m 678m 123p 东东东 99m")
         archive.upsert(active)
 
         archive.remember(players + [Player(name: "老王"), Player(name: "小周")])
@@ -140,14 +140,14 @@ enum DemoData {
             flow.load(samples[2])
             flow.steps = [.check]
         case .reviewing:
-            flow.load(Recognition(concealed: Tile.parseList("1112233445566p 7p"), source: "端侧"))
+            flow.load(Recognition(concealed: Tile.parseList("1112233445566778p 8p"), source: "端侧"))
             flow.isReviewing = true
             flow.steps = [.check]
         case .dualRead:
             // Gemini 把一张 5饼 读成 4饼；端侧在中间多读了一张 9条
-            var gemini = Recognition(concealed: Tile.parseList("1112233445566p 7p"), source: "Gemini")
+            var gemini = Recognition(concealed: Tile.parseList("1112233445566778p 8p"), source: "Gemini")
             gemini.concealed[9] = RecognizedTile(tile: Tile(suit: .dots, rank: 4)!)
-            let onDevice = Recognition(concealed: Tile.parseList("111223p 9s 3445566p 7p"), source: "端侧")
+            let onDevice = Recognition(concealed: Tile.parseList("111223p 9s 3445566778p 8p"), source: "端侧")
             flow.load(DualReadRecognizer.merge(gemini, with: onDevice))
             flow.steps = [.check]
         case .result, .resultCapped:
